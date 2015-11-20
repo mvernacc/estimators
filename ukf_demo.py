@@ -16,7 +16,7 @@ from sensors.barometer import Barometer
 from sensors.magnetometer import Magnetometer
 from dynamics.dubin import continuous_dubin_parafoil, discrete_dubin_dynamics
 from utils.plot_utils_16322 import plot_single_state_vs_time
-
+from estimators.bias_est  import discrete_dubin_dynamics_with_bias
 
 def main():
     # Create the sensors for the kalman filter estimator (known bias parameters).
@@ -28,25 +28,27 @@ def main():
     baro_est.noise_cov *= 4
     magneto_est.noise_cov *= 4
 
-    est_sensors = KalmanSensors([gps_est, baro_est, magneto_est], [[0, 1, 2], [2], [3]])
+    est_sensors = KalmanSensors([gps_est, baro_est, magneto_est],
+        [[0, 1, 2], [2, 4], [3]])
 
     # Create the sensors for the simulation (unknown, random bias parameters). 
     gps_sim = GPS()
     baro_sim = Barometer()
     magneto_sim = Magnetometer()
-    sim_sensors = KalmanSensors([gps_sim, baro_sim, magneto_sim], [[0, 1, 2], [2], [3]])
+    sim_sensors = KalmanSensors([gps_sim, baro_sim, magneto_sim],
+        [[0, 1, 2], [2], [3]])
 
     # Intitial true state
     x_init = np.array([0, 0, -1000, 0])
     # Initial state estimate
-    x_est_init = np.array([100, -100, -500, -1])
+    x_est_init = np.array([100, -100, -500, -1, 0])
     # Initial estimate covariance
-    Q_init = np.diag([100, 100, 100, 1])**2
+    Q_init = np.diag([100, 100, 100, 1, 1e3])**2
 
     ukf = pykalman.AdditiveUnscentedKalmanFilter(
-        discrete_dubin_dynamics,
+        discrete_dubin_dynamics_with_bias,
         est_sensors.measurement_function,
-        np.diag([0.1, 0.1, 0.1, 0.01])**2,
+        np.diag([0.1, 0.1, 0.1, 0.01, 0.1])**2,
         est_sensors.noise_cov,
         x_est_init,
         Q_init
@@ -56,10 +58,10 @@ def main():
     n_steps = 100
     x_traj = np.zeros((n_steps, len(x_init)))
     x_traj[0] = x_init
-    x_est_traj = np.zeros((n_steps, len(x_init)))
+    x_est_traj = np.zeros((n_steps, len(x_est_init)))
     x_est_traj[0] = x_est_init
     t_traj = np.zeros(n_steps)
-    Q_traj = np.zeros((n_steps, len(x_init), len(x_init)))
+    Q_traj = np.zeros((n_steps, len(x_est_init), len(x_est_init)))
 
     x_est = x_est_init
     Q = Q_init
@@ -77,15 +79,16 @@ def main():
         t_traj[i] = t_traj[i-1] + dt
 
 
-    ax = plt.subplot(3, 1, 1)
-    plt.plot(t_traj, x_traj[:, 3], color='blue', label='true')
-    plot_single_state_vs_time(ax, t_traj, x_est_traj, Q_traj, 3,
+    ax = plt.subplot(2, 2, 1)
+    plt.plot(t_traj, x_traj[:, 3] * 180 / np.pi, color='blue', label='true')
+    plot_single_state_vs_time(ax, t_traj,
+        x_est_traj * 180 / np.pi, Q_traj * (180 / np.pi)**2, 3,
         color='red', label='est')
     plt.xlabel('time')
-    plt.ylabel('heading [radia]')
+    plt.ylabel('heading [degree]')
     plt.legend()
 
-    ax = plt.subplot(3, 1, 2)
+    ax = plt.subplot(2, 2, 2)
     plt.plot(t_traj, x_traj[:, 2], color='blue', label='true')
     plot_single_state_vs_time(ax, t_traj, x_est_traj, Q_traj, 2,
         color='red', label='est')
@@ -93,12 +96,20 @@ def main():
     plt.ylabel('altitude [meter]')
     plt.legend()
 
-    plt.subplot(3, 1, 3)
+    plt.subplot(2, 2, 3)
     plt.plot(x_traj[:, 1], x_traj[:, 0], color='blue', label='true')
     plt.plot(x_traj[:, 1], x_est_traj[:, 0], color='red', label='est')
     plt.xlabel('x1 (West)')
     plt.ylabel('x0 (North)')
     plt.axis('equal')
+    plt.legend()
+
+    ax = plt.subplot(2, 2, 4)
+    plt.plot(t_traj, [baro_sim.bias_pressure]*len(t_traj), color='blue', label='true')
+    plot_single_state_vs_time(ax, t_traj, x_est_traj, Q_traj, 4,
+        color='red', label='est')
+    plt.xlabel('time')
+    plt.ylabel('Barometer bias [pascal]')
     plt.legend()
 
     plt.show()
