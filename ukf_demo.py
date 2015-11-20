@@ -15,6 +15,8 @@ from sensors.gps import GPS
 from sensors.barometer import Barometer
 from sensors.magnetometer import Magnetometer
 from dynamics.dubin import continuous_dubin_parafoil, discrete_dubin_dynamics
+from utils.plot_utils_16322 import plot_single_state_vs_time
+
 
 def main():
     gps = GPS()
@@ -27,7 +29,7 @@ def main():
     # Initial state estimate
     x_est_init = np.array([100, -100, -500, -1])
     # Initial estimate covariance
-    Q_init = np.diag([10, 10, 10, 0.1])**2
+    Q_init = np.diag([100, 100, 100, 1])**2
 
     ukf = pykalman.AdditiveUnscentedKalmanFilter(
         discrete_dubin_dynamics,
@@ -39,12 +41,13 @@ def main():
         )
 
     dt = 0.1
-    n_steps = 1000
+    n_steps = 100
     x_traj = np.zeros((n_steps, len(x_init)))
     x_traj[0] = x_init
     x_est_traj = np.zeros((n_steps, len(x_init)))
     x_est_traj[0] = x_est_init
     t_traj = np.zeros(n_steps)
+    Q_traj = np.zeros((n_steps, len(x_init), len(x_init)))
 
     x_est = x_est_init
     Q = Q_init
@@ -54,6 +57,7 @@ def main():
         # Update Kalman filter estimate.
         (x_est, Q) = ukf.filter_update(x_est, Q, y)
         x_est_traj[i] = x_est
+        Q_traj[i] = Q
         # Simulate the true dynamics.
         x_soln = odeint(continuous_dubin_parafoil, x_traj[i-1],
             [0, dt], args=(0.01,))
@@ -61,17 +65,21 @@ def main():
         t_traj[i] = t_traj[i-1] + dt
 
 
-    plt.subplot(3, 1, 1)
+    ax = plt.subplot(3, 1, 1)
     plt.plot(t_traj, x_traj[:, 3], color='blue', label='true')
-    plt.plot(t_traj, x_est_traj[:, 3], color='red', label='est')
+    plot_single_state_vs_time(ax, t_traj, x_est_traj, Q_traj, 3,
+        color='red', label='est')
     plt.xlabel('time')
-    plt.ylabel('heading')
+    plt.ylabel('heading [radia]')
+    plt.legend()
 
-    plt.subplot(3, 1, 2)
+    ax = plt.subplot(3, 1, 2)
     plt.plot(t_traj, x_traj[:, 2], color='blue', label='true')
-    plt.plot(t_traj, x_est_traj[:, 2], color='red', label='est')
+    plot_single_state_vs_time(ax, t_traj, x_est_traj, Q_traj, 2,
+        color='red', label='est')
     plt.xlabel('time')
     plt.ylabel('altitude [meter]')
+    plt.legend()
 
     plt.subplot(3, 1, 3)
     plt.plot(x_traj[:, 1], x_traj[:, 0], color='blue', label='true')
@@ -79,6 +87,7 @@ def main():
     plt.xlabel('x1 (West)')
     plt.ylabel('x0 (North)')
     plt.axis('equal')
+    plt.legend()
 
     plt.show()
 
