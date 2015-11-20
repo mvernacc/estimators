@@ -19,10 +19,22 @@ from utils.plot_utils_16322 import plot_single_state_vs_time
 
 
 def main():
-    gps = GPS()
-    baro = Barometer()
-    magneto = Magnetometer()
-    ks = KalmanSensors([gps, baro, magneto], [[0, 1, 2], [2], [3]])
+    # Create the sensors for the kalman filter estimator (known bias parameters).
+    gps_est = GPS()
+    baro_est = Barometer(bias_pressure=0)
+    magneto_est = Magnetometer(h_bias_ned=[0, 0, 0], h_bias_sensor=[0, 0, 0])
+    # Introduce ficticious sensor noise to make the estimator better
+    # able to deal with unknown sensor bias
+    baro_est.noise_cov *= 4
+    magneto_est.noise_cov *= 4
+
+    est_sensors = KalmanSensors([gps_est, baro_est, magneto_est], [[0, 1, 2], [2], [3]])
+
+    # Create the sensors for the simulation (unknown, random bias parameters). 
+    gps_sim = GPS()
+    baro_sim = Barometer()
+    magneto_sim = Magnetometer()
+    sim_sensors = KalmanSensors([gps_sim, baro_sim, magneto_sim], [[0, 1, 2], [2], [3]])
 
     # Intitial true state
     x_init = np.array([0, 0, -1000, 0])
@@ -33,9 +45,9 @@ def main():
 
     ukf = pykalman.AdditiveUnscentedKalmanFilter(
         discrete_dubin_dynamics,
-        ks.measurement_function,
+        est_sensors.measurement_function,
         np.diag([0.1, 0.1, 0.1, 0.01])**2,
-        ks.noise_cov,
+        est_sensors.noise_cov,
         x_est_init,
         Q_init
         )
@@ -53,7 +65,7 @@ def main():
     Q = Q_init
     for i in xrange(1, n_steps):
         # Get measurements.
-        y = ks.add_noise(ks.measurement_function(x_traj[i-1]))
+        y = sim_sensors.add_noise(sim_sensors.measurement_function(x_traj[i-1]))
         # Update Kalman filter estimate.
         (x_est, Q) = ukf.filter_update(x_est, Q, y)
         x_est_traj[i] = x_est
