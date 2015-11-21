@@ -95,7 +95,7 @@ def main():
         color='red', label='est')
     plt.xlabel('time')
     plt.ylabel('altitude [meter]')
-    plt.legend()
+    plt.legend(framealpha=0.5)
 
     plt.subplot(2, 3, 3)
     plt.plot(x_traj[:, 1], x_traj[:, 0], color='blue', label='true')
@@ -103,7 +103,7 @@ def main():
     plt.xlabel('x1 (West)')
     plt.ylabel('x0 (North)')
     plt.axis('equal')
-    plt.legend()
+    plt.legend(framealpha=0.5)
 
     ax = plt.subplot(2, 3, 4)
     plt.plot(t_traj, [baro_sim.bias_pressure]*len(t_traj), color='blue', label='true')
@@ -111,7 +111,7 @@ def main():
         color='red', label='est')
     plt.xlabel('time')
     plt.ylabel('Barometer bias [pascal]')
-    plt.legend()
+    plt.legend(framealpha=0.5)
 
     ax = plt.subplot(2, 3, 5)
     h_bias_sensor = np.zeros((len(t_traj), 3))
@@ -121,21 +121,21 @@ def main():
         h_bias_sensor[i] = magneto_sim.h_bias_sensor \
             + quat.rotate_vector(magneto_sim.h_bias_ned, q_ned2sensor)
 
-    plt.plot(t_traj, h_bias_sensor[:,0] * 1e6, color='red', label='true')
+    plt.plot(t_traj, h_bias_sensor[:,0] * 1e6, color='red', label='true[0]')
     plot_single_state_vs_time(ax, t_traj, x_est_traj * 1e6, Q_traj * 1e12, 5,
-        color='red', label='est', linestyle='--')
+        color='red', label='est[0]', linestyle='--')
 
-    plt.plot(t_traj, h_bias_sensor[:,1] * 1e6, color='green', label='true')
+    plt.plot(t_traj, h_bias_sensor[:,1] * 1e6, color='green', label='true[1]')
     plot_single_state_vs_time(ax, t_traj, x_est_traj * 1e6, Q_traj * 1e12, 6,
-        color='green', label='est', linestyle='--')
+        color='green', label='est[1]', linestyle='--')
 
-    plt.plot(t_traj, h_bias_sensor[:,2] * 1e6, color='blue', label='true')
+    plt.plot(t_traj, h_bias_sensor[:,2] * 1e6, color='blue', label='true[2]')
     plot_single_state_vs_time(ax, t_traj, x_est_traj * 1e6, Q_traj * 1e12, 7,
-        color='blue', label='est', linestyle='--')
+        color='blue', label='est[2]', linestyle='--')
 
     plt.xlabel('time')
     plt.ylabel('Magneto total bias in sensor frame [microtesla]')
-    plt.legend()
+    plt.legend(framealpha=0.5)
 
     plt.show()
 
