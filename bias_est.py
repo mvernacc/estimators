@@ -18,7 +18,7 @@ def discrete_dubin_dynamics_with_bias(x, **kwargs):
     Arguments:
         x (real vector): Bias-augmented state
             [LNED_north, LNED_east, LNED_down, heading,
-            baro.bias_pressure, magneto.h_bias_ned[0:3]].
+            baro.bias_pressure, magneto.h_bias_total_in_sensor_frame[0:3]].
     '''
     x = np.array(x)
     x_next = np.zeros(x.shape)

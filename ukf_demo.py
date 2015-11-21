@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pykalman
 from scipy.integrate import odeint
+import transforms3d.quaternions as quat
 
 from sensors.sensor_interface import KalmanSensors
 from sensors.gps import GPS
@@ -29,7 +30,7 @@ def main():
     magneto_est.noise_cov *= 4
 
     est_sensors = KalmanSensors([gps_est, baro_est, magneto_est],
-        [[0, 1, 2], [2, 4], [3]])
+        [[0, 1, 2], [2, 4], [3, 5, 6, 7]])
 
     # Create the sensors for the simulation (unknown, random bias parameters). 
     gps_sim = GPS()
@@ -41,14 +42,14 @@ def main():
     # Intitial true state
     x_init = np.array([0, 0, -1000, 0])
     # Initial state estimate
-    x_est_init = np.array([100, -100, -500, -1, 0])
+    x_est_init = np.array([100, -100, -500, -1, 0, 0, 0, 0])
     # Initial estimate covariance
-    Q_init = np.diag([100, 100, 100, 1, 1e3])**2
+    Q_init = np.diag([100, 100, 100, 1, 1e3, 5e-6, 5e-6, 5e-6])**2
 
     ukf = pykalman.AdditiveUnscentedKalmanFilter(
         discrete_dubin_dynamics_with_bias,
         est_sensors.measurement_function,
-        np.diag([0.1, 0.1, 0.1, 0.01, 0.1])**2,
+        np.diag([0.1, 0.1, 0.1, 0.01, 0.1, 1e-7, 1e-7, 1e-7])**2,
         est_sensors.noise_cov,
         x_est_init,
         Q_init
@@ -79,7 +80,7 @@ def main():
         t_traj[i] = t_traj[i-1] + dt
 
 
-    ax = plt.subplot(2, 2, 1)
+    ax = plt.subplot(2, 3, 1)
     plt.plot(t_traj, x_traj[:, 3] * 180 / np.pi, color='blue', label='true')
     plot_single_state_vs_time(ax, t_traj,
         x_est_traj * 180 / np.pi, Q_traj * (180 / np.pi)**2, 3,
@@ -88,7 +89,7 @@ def main():
     plt.ylabel('heading [degree]')
     plt.legend()
 
-    ax = plt.subplot(2, 2, 2)
+    ax = plt.subplot(2, 3, 2)
     plt.plot(t_traj, x_traj[:, 2], color='blue', label='true')
     plot_single_state_vs_time(ax, t_traj, x_est_traj, Q_traj, 2,
         color='red', label='est')
@@ -96,7 +97,7 @@ def main():
     plt.ylabel('altitude [meter]')
     plt.legend()
 
-    plt.subplot(2, 2, 3)
+    plt.subplot(2, 3, 3)
     plt.plot(x_traj[:, 1], x_traj[:, 0], color='blue', label='true')
     plt.plot(x_traj[:, 1], x_est_traj[:, 0], color='red', label='est')
     plt.xlabel('x1 (West)')
@@ -104,12 +105,36 @@ def main():
     plt.axis('equal')
     plt.legend()
 
-    ax = plt.subplot(2, 2, 4)
+    ax = plt.subplot(2, 3, 4)
     plt.plot(t_traj, [baro_sim.bias_pressure]*len(t_traj), color='blue', label='true')
     plot_single_state_vs_time(ax, t_traj, x_est_traj, Q_traj, 4,
         color='red', label='est')
     plt.xlabel('time')
     plt.ylabel('Barometer bias [pascal]')
+    plt.legend()
+
+    ax = plt.subplot(2, 3, 5)
+    h_bias_sensor = np.zeros((len(t_traj), 3))
+    for i in xrange(len(t_traj)):
+        heading = x_traj[i,3]
+        q_ned2sensor = quat.axangle2quat([0, 0, 1], heading)
+        h_bias_sensor[i] = magneto_sim.h_bias_sensor \
+            + quat.rotate_vector(magneto_sim.h_bias_ned, q_ned2sensor)
+
+    plt.plot(t_traj, h_bias_sensor[:,0] * 1e6, color='red', label='true')
+    plot_single_state_vs_time(ax, t_traj, x_est_traj * 1e6, Q_traj * 1e12, 5,
+        color='red', label='est', linestyle='--')
+
+    plt.plot(t_traj, h_bias_sensor[:,1] * 1e6, color='green', label='true')
+    plot_single_state_vs_time(ax, t_traj, x_est_traj * 1e6, Q_traj * 1e12, 6,
+        color='green', label='est', linestyle='--')
+
+    plt.plot(t_traj, h_bias_sensor[:,2] * 1e6, color='blue', label='true')
+    plot_single_state_vs_time(ax, t_traj, x_est_traj * 1e6, Q_traj * 1e12, 7,
+        color='blue', label='est', linestyle='--')
+
+    plt.xlabel('time')
+    plt.ylabel('Magneto total bias in sensor frame [microtesla]')
     plt.legend()
 
     plt.show()
