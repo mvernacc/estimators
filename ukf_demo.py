@@ -20,36 +20,60 @@ from utils.plot_utils_16322 import plot_single_state_vs_time
 from estimators.bias_est  import discrete_dubin_dynamics_with_bias
 
 def main():
-    # Create the sensors for the kalman filter estimator (known bias parameters).
+    # Create the sensors for the Kalman filter estimator (known bias parameters).
     gps_est = GPS()
     baro_est = Barometer(bias_pressure=0)
     magneto_est = Magnetometer(h_bias_ned=[0, 0, 0], h_bias_sensor=[0, 0, 0])
-    # Introduce ficticious sensor noise to make the estimator better
+    # Introduce fictitious sensor noise to make the estimator better
     # able to deal with unknown sensor bias
     baro_est.noise_cov *= 4
     magneto_est.noise_cov *= 4
 
+    # System process noise covariance
+    dubin_dynamics_cov = np.diag([0.1, 0.1, 0.1, 0.01])**2
+
+    # Number of system states.
+    n_system_states = 4
+    # Number of sensor bias states.
+    n_sensor_states = 4
+
     est_sensors = KalmanSensors([gps_est, baro_est, magneto_est],
-        [[0, 1, 2], [2, 4], [3, 5, 6, 7]])
+        [[0, 1, 2], [2], [3]], n_system_states,
+        [[], [4], [5, 6, 7]], n_sensor_states,
+        discrete_dubin_dynamics,
+        dubin_dynamics_cov)
 
     # Create the sensors for the simulation (unknown, random bias parameters). 
     gps_sim = GPS()
     baro_sim = Barometer()
     magneto_sim = Magnetometer()
     sim_sensors = KalmanSensors([gps_sim, baro_sim, magneto_sim],
-        [[0, 1, 2], [2], [3]])
+        [[0, 1, 2], [2], [3]], n_system_states)
 
-    # Intitial true state
+    # Initial true state
     x_init = np.array([0, 0, -1000, 0])
-    # Initial state estimate
-    x_est_init = np.array([100, -100, -500, -1, 0, 0, 0, 0])
-    # Initial estimate covariance
-    Q_init = np.diag([100, 100, 100, 1, 1e3, 5e-6, 5e-6, 5e-6])**2
 
+    # Initial state estimate. Set the sensor bias states
+    # to an initial estimate of zero.
+    x_est_init = np.concatenate(([100, -100, -500, 1],
+        np.zeros(n_sensor_states)))
+
+    # Initial estimate covariance.
+    # The std. dev. uncertainty of the initial system state
+    # estimate
+    system_state_init_std_dev = [100, 100, 100, 1]
+    # The std. dev. uncertainty of the sensor bias states.
+    sensor_state_init_std_dev = [1e3, 5e-6, 5e-6, 5e-6]
+    Q_init = np.diag(np.concatenate((
+        system_state_init_std_dev,
+        sensor_state_init_std_dev
+        )))**2
+
+    # Create the Kalman Filter
     ukf = pykalman.AdditiveUnscentedKalmanFilter(
-        discrete_dubin_dynamics_with_bias,
+        est_sensors.augmented_transition_function,
         est_sensors.measurement_function,
-        np.diag([0.1, 0.1, 0.1, 0.01, 0.1, 1e-7, 1e-7, 1e-7])**2,
+        est_sensors.augmented_process_covariance,
         est_sensors.noise_cov,
         x_est_init,
         Q_init
