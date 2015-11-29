@@ -8,6 +8,29 @@ import numpy as np
 import transforms3d.quaternions as quat
 
 
+def cross_mat(v):
+    ''' Cross product matrix.
+
+    Implement eqn 17 in Crassidis [1].
+
+    Arguments:
+        v (3-vector)
+
+    Returns:
+        3x3 matrix
+
+    References:
+        [1] J. L. Crassidis and F. Landis Markley, 'Unscented Filtering for
+            Spacecraft Attitude Estimation,' SUNY Buffalo, Amherst, NY.
+            Online: http://ancs.eng.buffalo.edu/pdf/ancs_papers/2003/uf_att.pdf
+    '''
+    return np.array([
+        [0, -a[2], a[1]],
+        [a[2], 0 , -a[0]],
+        [-a[1], a[0], 0]
+        ])
+
+
 def quat_derivative(q, w):
     ''' Quaternion derivative dq / dt.
 
@@ -27,12 +50,10 @@ def quat_derivative(q, w):
             Spacecraft Attitude Estimation,' SUNY Buffalo, Amherst, NY.
             Online: http://ancs.eng.buffalo.edu/pdf/ancs_papers/2003/uf_att.pdf
     '''
-    Xi = np.array([
-        [-q[1], -q[2], -q[3]],
-        [q[0], -q[3], q[2]],
-        [q[3], q[0], -q[1]],
-        [-q[2], q[1], q[0]]
-        ])
+    Xi = np.bmat([
+        [-q[1:]],
+        [q[0] * np.eye((3,3)) + cross_mat(q[1:])],
+        ]).A
     w = np.array(w)
     q_dot = 0.5 * np.dot(Xi, w.T)
     return q_dot
