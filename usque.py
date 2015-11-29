@@ -109,12 +109,12 @@ def rodrigues2quat(dp, a=1.0, f=4.0):
     ''' Convert an error quaternion to Rodrigues parameter vector.
 
     Arguments:
-        do (quaternion): Generalized Rodrigues paramter vector. [units: none].
+        dp (3-vector): Generalized Rodrigues paramter vector. [units: none].
         a (real, optional): scale factor. Must be in [0, 1].
         f (real, optional): scale factor.
 
     Returns:
-        3-vector: Error quaternion [units: none].
+        quaternion: Error quaternion [units: none].
 
     References:
         [1] J. L. Crassidis and F. Landis Markley, 'Unscented Filtering for
@@ -129,21 +129,22 @@ def rodrigues2quat(dp, a=1.0, f=4.0):
 
 
 class Usque(object):
-    def __init__(self, x_est_0, Q_0, f, W, h, R):
+    def __init__(self, quat_0, x_est_0, Q_0, f, W, h, R):
         ''' Create an UnScented QUaternion Estimator.
 
         The state vector is:
-            index 0: quaternion real scalar part
-            index 1: quaternion vector i part
-            index 2: quaternion vector j part
-            index 3: quaternion vector k part
-            index 4+: arbitrary states
+            index 0: rate gyro bias sensor frame x component
+            index 1: rate gyro bias sensor frame y component
+            index 2: rate gyro bias sensor frame z component
+            index 3+: arbitrary state
 
         The covariance matrix is:
             row/col 0, 1, 2: covariance of attitude.
-            row/col n > 2: covariance of state n+1.
+            row/col 3, 4, 5: covariance of gyro bias.
+            row/col n > 5: covariance of state n-3.
 
         Arguments:
+            quat_0: initial attitude quaternion.
             x_est_0 (real vector): The initial state estimate.
             Q_0 (real matrix): The intial estimate covariance.
             f (function): State update function (x_{t-1}, u) --> x_t.
@@ -167,8 +168,10 @@ class Usque(object):
         assert(len(self.x_est) == self.Q.shape[0])
         assert(len(self.x_est) == self.Q.shape[1])
 
+        self.dp = np.zeros(3)
 
-    def propagate_dynamics(self, u):
+
+    def propagate_dynamics(self, w, u):
         ''' Propagate the estimate forward by one time step.
 
         In the notation used by N. Roy in 16.322, calling this function
@@ -177,10 +180,14 @@ class Usque(object):
             Q_{k-1|k-1} --> Q_{k|k-1}
 
         Arguments:
+            w (3-vector): The sensed rotational velocity
+                [units: radian second**-1].
             u (real vector): The control action for this time step.
         '''
         # Form 2n sigma points from x_{k-1|k-1} and Q_{k-1|k-1}.
-        sigma_points = self.get_sigma_points(self.x_est, self.Q)
+        sigma_points = self.get_sigma_points(
+            np.hstack((self.dp, self.x_est)),
+            self.Q)
         # Propagate each sigma point from step k-1 to step k.
         sigma_points_next = np.array([self.f(x, u) for x in sigma_points])
         # Use the sigma points to approximate x_{k|k-1} and Q_{k|k-1}
