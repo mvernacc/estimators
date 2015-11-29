@@ -24,10 +24,11 @@ def cross_mat(v):
             Spacecraft Attitude Estimation,' SUNY Buffalo, Amherst, NY.
             Online: http://ancs.eng.buffalo.edu/pdf/ancs_papers/2003/uf_att.pdf
     '''
+    v = np.squeeze(np.array(v))
     return np.array([
-        [0, -a[2], a[1]],
-        [a[2], 0 , -a[0]],
-        [-a[1], a[0], 0]
+        [0, -v[2], v[1]],
+        [v[2], 0 , -v[0]],
+        [-v[1], v[0], 0]
         ])
 
 
@@ -52,11 +53,35 @@ def quat_derivative(q, w):
     '''
     Xi = np.bmat([
         [-q[1:]],
-        [q[0] * np.eye((3,3)) + cross_mat(q[1:])],
+        [q[0] * np.eye(3) + cross_mat(q[1:])],
         ]).A
     w = np.array(w)
     q_dot = 0.5 * np.dot(Xi, w.T)
     return q_dot
+
+def quat_propagate(q, w, dt):
+    '''Propagate a quaternion forward in time.
+
+    Arguments:
+        q (quaternion): The attitude [units: none].
+        w (3-vector): The angular velocity [units: radian second**-1].
+        dt (real): The time step [units: second].
+
+    Returns:
+        quaternion: New attitude [units: none].
+
+    References:
+        [1] J. L. Crassidis and F. Landis Markley, 'Unscented Filtering for
+            Spacecraft Attitude Estimation,' SUNY Buffalo, Amherst, NY.
+            Online: http://ancs.eng.buffalo.edu/pdf/ancs_papers/2003/uf_att.pdf
+    '''
+    w = np.array(w)
+    norm_w = np.linalg.norm(w)
+    if norm_w < 1e-10:
+        return q
+    angle = norm_w * dt
+    dq = quat.axangle2quat(w, angle)
+    return quat.qmult(dq, q)
 
 
 def quat2rodrigues(dq, a=1.0, f=4.0):
@@ -80,7 +105,7 @@ def quat2rodrigues(dq, a=1.0, f=4.0):
 
 
 def rodrigues2quat(dp, a=1.0, f=4.0):
-     ''' Convert an error quaternion to Rodrigues parameter vector.
+    ''' Convert an error quaternion to Rodrigues parameter vector.
 
     Arguments:
         do (quaternion): Generalized Rodrigues paramter vector. [units: none].
