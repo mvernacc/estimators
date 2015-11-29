@@ -27,5 +27,71 @@ class RodriguesTest(unittest.TestCase):
         self.assertTrue(all(abs(q1 - q2) < 1e-10))
 
 
+class QuatDerivativeTest(unittest.TestCase):
+    def test_zero(self):
+        q1 = quat.qeye()
+        w = [0, 0, 0]
+        q2 = usque.quat_derivative(q1, w)
+        self.assertTrue(all(q2 == 0))
+
+
+    def test_positive_x(self):
+        q1 = quat.qeye()
+        w = [1, 0, 0]
+        q2 = usque.quat_derivative(q1, w)
+        self.assertTrue(q2[0] == 0)
+        self.assertTrue(q2[1] > 0)
+        self.assertTrue(q2[2] == 0)
+        self.assertTrue(q2[3] == 0)
+
+
+    def test_positive_y(self):
+        q1 = quat.qeye()
+        w = [0, 1, 0]
+        q2 = usque.quat_derivative(q1, w)
+        self.assertTrue(q2[0] == 0)
+        self.assertTrue(q2[1] == 0)
+        self.assertTrue(q2[2] > 0)
+        self.assertTrue(q2[3] == 0)
+
+
+    def test_positive_z(self):
+        q1 = quat.qeye()
+        w = [0, 0, 1]
+        q2 = usque.quat_derivative(q1, w)
+        self.assertTrue(q2[0] == 0)
+        self.assertTrue(q2[1] == 0)
+        self.assertTrue(q2[2] == 0)
+        self.assertTrue(q2[3] > 0)
+
+    def test_negative_x(self):
+        q1 = quat.qeye()
+        w = [-1, 0, 0]
+        q2 = usque.quat_derivative(q1, w)
+        self.assertTrue(q2[0] == 0)
+        self.assertTrue(q2[1] < 0)
+        self.assertTrue(q2[2] == 0)
+        self.assertTrue(q2[3] == 0)
+
+
+    def test_negative_y(self):
+        q1 = quat.qeye()
+        w = [0, -1, 0]
+        q2 = usque.quat_derivative(q1, w)
+        self.assertTrue(q2[0] == 0)
+        self.assertTrue(q2[1] == 0)
+        self.assertTrue(q2[2] < 0)
+        self.assertTrue(q2[3] == 0)
+
+
+    def test_negative_z(self):
+        q1 = quat.qeye()
+        w = [0, 0, -1]
+        q2 = usque.quat_derivative(q1, w)
+        self.assertTrue(q2[0] == 0)
+        self.assertTrue(q2[1] == 0)
+        self.assertTrue(q2[2] == 0)
+        self.assertTrue(q2[3] < 0)
+
 if __name__ == '__main__':
     unittest.main()

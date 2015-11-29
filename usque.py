@@ -52,12 +52,12 @@ def quat_derivative(q, w):
             Online: http://ancs.eng.buffalo.edu/pdf/ancs_papers/2003/uf_att.pdf
     '''
     Xi = np.bmat([
-        [-q[1:]],
+        [-np.matrix(q[1:])],
         [q[0] * np.eye(3) + cross_mat(q[1:])],
         ]).A
-    w = np.array(w)
+    w = np.matrix(w)
     q_dot = 0.5 * np.dot(Xi, w.T)
-    return q_dot
+    return np.squeeze(q_dot.A)
 
 
 def quat_propagate(q, w, dt):
