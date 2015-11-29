@@ -11,6 +11,10 @@ import transforms3d.quaternions as quat
 def quat_derivative(q, w):
     ''' Quaternion derivative dq / dt.
 
+    Note this is slightly different from equation 16a in Crassidis [1]. He
+    has q[3] as the real part of the the quaternion, I have q[0] as the real
+    part for compatiblity with the transforms3d library.
+
     Arguments:
         q (quaternion): The attitude [units: none].
         w (3-vector): The angular velocity [units: radian second**-1].
@@ -24,10 +28,10 @@ def quat_derivative(q, w):
             Online: http://ancs.eng.buffalo.edu/pdf/ancs_papers/2003/uf_att.pdf
     '''
     Xi = np.array([
+        [-q[1], -q[2], -q[3]],
         [q[0], -q[3], q[2]],
         [q[3], q[0], -q[1]],
-        [-q[2], q[1], q[0]],
-        [-q[1], -q[2], -q[3]]
+        [-q[2], q[1], q[0]]
         ])
     w = np.array(w)
     q_dot = 0.5 * np.dot(Xi, w.T)
@@ -87,6 +91,10 @@ class Usque(object):
             index 2: quaternion vector j part
             index 3: quaternion vector k part
             index 4+: arbitrary states
+
+        The covariance matrix is:
+            row/col 0, 1, 2: covariance of attitude.
+            row/col n > 2: covariance of state n+1.
 
         Arguments:
             x_est_0 (real vector): The initial state estimate.
