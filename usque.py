@@ -59,6 +59,7 @@ def quat_derivative(q, w):
     q_dot = 0.5 * np.dot(Xi, w.T)
     return q_dot
 
+
 def quat_propagate(q, w, dt):
     '''Propagate a quaternion forward in time.
 
