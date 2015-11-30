@@ -26,7 +26,7 @@ def rotation_dynamics(x, u, dt=0.01):
     w = x[4:7]
     
     q_next = quat_utils.quat_propagate(q, w, dt)
-    w_next = w
+    w_next = w + u * dt
 
     x_next = np.hstack((q_next, w_next))
     return x_next
@@ -52,7 +52,7 @@ def main():
         [[4, 5, 6]], n_system_states)
 
     # Create the sensors for the simulation (unknown, random bias parameters). 
-    gyro_sim = RateGyro(constant_bias=[0,0,0], bias_walk_process_std_dev=0)
+    gyro_sim = RateGyro(dt=dt)
     sim_sensors = KalmanSensors([gyro_sim],
         [[4, 5, 6]], n_system_states)
 
@@ -76,13 +76,15 @@ def main():
     ukf = KraftQautUKF(
         x_est_init,
         Q_init,
-        rotation_dynamics,
+        lambda x, u: rotation_dynamics(x, u, dt),
         W,
         est_sensors.measurement_function,
         est_sensors.noise_cov,
         )
 
-    n_steps = 10
+    u = np.deg2rad([10.0, 0, 0])
+
+    n_steps = 100
     x_traj = np.zeros((n_steps, len(x_init)))
     x_traj[0] = x_init
     x_est_traj = np.zeros((n_steps, len(x_est_init)))
@@ -96,12 +98,12 @@ def main():
         # Get measurements.
         y = sim_sensors.add_noise(sim_sensors.measurement_function(x_traj[i-1]))
         # Update Kalman filter estimate.
-        ukf.propagate_dynamics(None)
+        ukf.propagate_dynamics(u)
         ukf.update_measurement(y)
         x_est_traj[i] = ukf.x_est
         Q_traj[i] = ukf.Q
         # Simulate the true dynamics.
-        x_traj[i] = rotation_dynamics(x_traj[i-1], None)
+        x_traj[i] = rotation_dynamics(x_traj[i-1], u)
         t_traj[i] = t_traj[i-1] + dt
 
 
@@ -132,7 +134,8 @@ def main():
         plt.plot(t_traj, x_traj[:, i+4], color=colors[i+1], linestyle='-',
             label='w[{:d}] true'.format(i))
         plot_single_state_vs_time(ax, t_traj, x_est_traj, Q_traj_padded, i+4,
-            color=colors[i+1], label='w[{:d}] est'.format(i))
+            color=colors[i+1], label='w[{:d}] est'.format(i),
+            linestyle='--')
     plt.xlabel('Time [s]')
     plt.ylabel('Angular rate [rad / s]')
     plt.legend(framealpha=0.5)
