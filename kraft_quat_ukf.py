@@ -75,7 +75,9 @@ class KraftQautUKF(object):
         # Propagate each sigma point from step k-1 to step k.
         sigma_points_next = np.array([self.f(x, u) for x in sigma_points])
         # Use the sigma points to approximate x_{k|k-1} and Q_{k|k-1}
-        self.x_est[0:4] = quat_utils.quat_average(sigma_points_next[:, 0:4])
+        self.x_est[0:4] = quat_utils.quat_average(
+            sigma_points_next[:, 0:4],
+            q_expected=self.x_est[0:4])
         self.x_est[4:] = np.mean(sigma_points_next[:, 4:], axis=0)
         self.Q = self.get_Q_from_sigma_points(sigma_points_next, self.x_est,
             is_1_quat=True)
