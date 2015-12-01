@@ -34,7 +34,7 @@ def rotation_dynamics(x, u, dt=0.01):
 
 def main():
     np.set_printoptions(precision=3)
-    dt=0.01
+    dt=0.1
     # Create the sensors for the Kalman filter estimator (known bias parameters).
     magneto_est = Magnetometer(h_bias_ned=[0, 0, 0], h_bias_sensor=[0, 0, 0])
     gyro_est = RateGyro(constant_bias=[0,0,0], bias_walk_process_std_dev=0,
@@ -82,9 +82,7 @@ def main():
         est_sensors.noise_cov,
         )
 
-    u = np.deg2rad([10.0, 0, 0])
-
-    n_steps = 100
+    n_steps = 350
     x_traj = np.zeros((n_steps, len(x_init)))
     x_traj[0] = x_init
     x_est_traj = np.zeros((n_steps, len(x_est_init)))
@@ -94,16 +92,21 @@ def main():
 
     x_est = x_est_init
     Q = Q_init
+
+    u_traj = np.zeros((n_steps, 3))
+    for i in xrange(0, 10):
+        u_traj[i] = np.deg2rad([10.0, 0, 0])
+
     for i in xrange(1, n_steps):
         # Get measurements.
         y = sim_sensors.add_noise(sim_sensors.measurement_function(x_traj[i-1]))
         # Update Kalman filter estimate.
-        ukf.propagate_dynamics(u)
+        ukf.propagate_dynamics(u_traj[i])
         ukf.update_measurement(y)
         x_est_traj[i] = ukf.x_est
         Q_traj[i] = ukf.Q
         # Simulate the true dynamics.
-        x_traj[i] = rotation_dynamics(x_traj[i-1], u)
+        x_traj[i] = rotation_dynamics(x_traj[i-1], u_traj[i], dt)
         t_traj[i] = t_traj[i-1] + dt
 
 
