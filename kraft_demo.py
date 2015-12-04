@@ -42,7 +42,7 @@ def main():
         dt=dt)
 
     # System process noise covariance
-    process_std_dev = np.hstack((np.deg2rad([1, 1, 1])*dt, 
+    process_std_dev = np.hstack((np.deg2rad([10, 10, 10])*dt, 
         np.deg2rad([10, 10, 10])*dt))
     W = np.diag(process_std_dev)**2
 
@@ -71,14 +71,14 @@ def main():
 
     # Initial state estimate. Set the sensor bias states
     # to an initial estimate of zero.
-    x_est_init = np.concatenate(([1., 0., 0., 0., 0., 0., 0.],
+    x_est_init = np.concatenate(([0.76, 0.76, 0., 0., 0., 0., 0.],
         np.zeros(n_sensor_states)))
 
     # Initial estimate covariance.
     # The std. dev. uncertainty of the initial system state
     # estimate
-    system_state_init_std_dev = np.hstack((np.deg2rad([1., 1., 1.]), 
-        np.deg2rad([1., 1., 1.])))
+    system_state_init_std_dev = np.hstack((np.deg2rad([30., 30., 30.]), 
+        np.deg2rad([0.1, 0.1, 0.1])))
     # The std. dev. uncertainty of the sensor bias states.
     sensor_state_init_std_dev = np.deg2rad([5., 5., 5.])
     Q_init = np.diag(np.concatenate((
@@ -96,7 +96,7 @@ def main():
         est_sensors.noise_cov,
         )
 
-    n_steps = 350
+    n_steps = 500
     x_traj = np.zeros((n_steps, len(x_init)))
     x_traj[0] = x_init
     x_est_traj = np.zeros((n_steps, len(x_est_init)))
@@ -111,7 +111,7 @@ def main():
     Q = Q_init
 
     u_traj = np.zeros((n_steps, 3))
-    for i in xrange(0, 10):
+    for i in xrange(100, 110):
         u_traj[i] = np.deg2rad([10.0, 0, 0])
 
     for i in xrange(1, n_steps):
