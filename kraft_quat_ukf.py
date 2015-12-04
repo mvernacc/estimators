@@ -156,7 +156,7 @@ class KraftQautUKF(object):
             for i in xrange(2*(n-1)):
                 q_i = sp1[i, 0:4]
                 q_avg = x1[0:4]
-                q_disturb = quat.qmult(q_i, quat.qinverse(q_avg))
+                q_disturb = quat.qmult(quat.qinverse(q_avg), q_i)
                 axis, angle = quat.quat2axangle(q_disturb)
                 distrub1[i, 0:3] = axis * angle
                 distrub1[i, 3:] = sp1[i, 4:] - x1[4:]
