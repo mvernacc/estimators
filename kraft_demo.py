@@ -121,7 +121,7 @@ def main():
         # Get measurements.
         y_traj[i] = sim_sensors.add_noise(sim_sensors.measurement_function(x_traj[i-1]))
         # Update Kalman filter estimate.
-        ukf.propagate_dynamics(u_traj[i])
+        ukf.propagate_dynamics(np.array([0, 0, 0]))
         ukf.update_measurement(y_traj[i])
         x_est_traj[i] = ukf.x_est
         Q_traj[i] = ukf.Q
