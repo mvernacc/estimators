@@ -46,6 +46,7 @@ class KraftQautUKF(object):
                 Online: http://ieeexplore.ieee.org/xpls/abs_all.jsp?arnumber=1257247
         ''' 
         self.x_est = np.array(x_est_0)
+        self.normalize_quat_state()
         self.n = len(self.x_est)
         self.Q = np.array(Q_0)
         self.f = f
