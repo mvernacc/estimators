@@ -13,6 +13,7 @@ import transforms3d.quaternions as quat
 from sensors.sensor_interface import KalmanSensors
 from sensors.magnetometer import Magnetometer
 from sensors.rate_gyro import RateGyro
+from sensors.accelerometer import Accelerometer
 
 from kraft_quat_ukf import KraftQautUKF
 from utils import quat_utils
@@ -40,6 +41,8 @@ def main():
     magneto_est.is_stateful = False
     gyro_est = RateGyro(constant_bias=[0,0,0],
         dt=dt)
+    accel_est = Accelerometer(a_bias_sensor=[0, 0, 0])
+    accel_est.is_stateful = False
 
     # System process noise covariance
     process_std_dev = np.hstack((np.deg2rad([10, 10, 10])*dt, 
@@ -52,9 +55,9 @@ def main():
     n_sensor_states = 3
 
 
-    est_sensors = KalmanSensors([gyro_est, magneto_est],
-        [[4, 5, 6], [0, 1, 2, 3]], n_system_states,
-        [[7, 8, 9], []], n_sensor_states,
+    est_sensors = KalmanSensors([gyro_est, magneto_est, accel_est],
+        [[4, 5, 6], [0, 1, 2, 3], [0, 1, 2, 3]], n_system_states,
+        [[7, 8, 9], [], []], n_sensor_states,
         lambda x, u: rotation_dynamics(x, u, dt),
         W,
         1)
@@ -63,8 +66,10 @@ def main():
     gyro_sim = RateGyro(dt=dt)
     magneto_sim = Magnetometer(h_bias_ned=[0, 0, 0], h_bias_sensor=[0, 0, 0])
     magneto_sim.is_stateful = False
-    sim_sensors = KalmanSensors([gyro_sim, magneto_sim],
-        [[4, 5, 6], [0, 1, 2, 3]], n_system_states)
+    accel_sim = Accelerometer()
+    accel_sim.is_stateful = False
+    sim_sensors = KalmanSensors([gyro_sim, magneto_sim, accel_sim],
+        [[4, 5, 6], [0, 1, 2, 3], [0, 1, 2, 3]], n_system_states)
 
     # Initial true state
     x_init = np.array([1., 0., 0., 0., 0., 0., 0.])
@@ -135,7 +140,7 @@ def main():
     print 'Final estimate covariance Q = '
     print ukf.Q
 
-    ax = plt.subplot(2, 2, 1)
+    ax = plt.subplot(3, 2, 1)
     colors = ['black', 'red', 'green', 'blue']
     for i in xrange(4):
         plt.plot(t_traj, x_traj[:, i], color=colors[i], linestyle='-',
@@ -146,7 +151,7 @@ def main():
     plt.ylabel('Quaternion')
     plt.legend(framealpha=0.5)
     
-    ax2 = plt.subplot(2, 2, 2, sharex=ax)
+    ax2 = plt.subplot(3, 2, 2, sharex=ax)
     Q_traj_padded = np.concatenate((
         np.zeros((n_steps, len(x_est_init), 1)),
         np.concatenate((
@@ -163,7 +168,7 @@ def main():
     plt.ylabel('Angular rate [rad / s]')
     plt.legend(framealpha=0.5)
 
-    ax3 = plt.subplot(2, 2, 3, sharex=ax)
+    ax3 = plt.subplot(3, 2, 3, sharex=ax)
     for i in xrange(3):
         plt.plot(t_traj, y_traj[:, i + 3], color=colors[i+1], marker='x',
             label='mag[{:d}]'.format(i))
@@ -171,7 +176,7 @@ def main():
     plt.ylabel('Mag Field [uT]')
     plt.legend(framealpha=0.5)
 
-    ax4 = plt.subplot(2, 2, 4, sharex=ax)
+    ax4 = plt.subplot(3, 2, 4, sharex=ax)
     for i in [0, 1, 2]:
         plt.plot(t_traj, gyro_bias_traj[:, i], color=colors[i+1], linestyle='-',
             label='b[{:d}] true'.format(i))
@@ -180,6 +185,14 @@ def main():
             linestyle='--')
     plt.xlabel('Time [s]')
     plt.ylabel('Gyro bias [rad / s]')
+    plt.legend(framealpha=0.5)
+
+    ax5 = plt.subplot(3, 2, 5, sharex=ax)
+    for i in xrange(3):
+        plt.plot(t_traj, y_traj[:, i + 6], color=colors[i+1],
+            label='accel[{:d}]'.format(i))
+    plt.xlabel('Time [s]')
+    plt.ylabel('Accel [m / s**2]')
     plt.legend(framealpha=0.5)
 
     plt.show()
