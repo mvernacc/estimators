@@ -48,13 +48,14 @@ def main():
     # Number of system states.
     n_system_states = 7
 
-    est_sensors = KalmanSensors([gyro_est],
-        [[4, 5, 6]], n_system_states)
+    est_sensors = KalmanSensors([gyro_est, magneto_est],
+        [[4, 5, 6], [0, 1, 2, 3]], n_system_states)
 
     # Create the sensors for the simulation (unknown, random bias parameters). 
     gyro_sim = RateGyro(dt=dt)
-    sim_sensors = KalmanSensors([gyro_sim],
-        [[4, 5, 6]], n_system_states)
+    magneto_sim = Magnetometer(h_bias_ned=[0, 0, 0], h_bias_sensor=[0, 0, 0])
+    sim_sensors = KalmanSensors([gyro_sim, magneto_sim],
+        [[4, 5, 6], [0, 1, 2, 3]], n_system_states)
 
     # Initial true state
     x_init = np.array([1., 0., 0., 0., 0., 0., 0.])
@@ -90,6 +91,8 @@ def main():
     t_traj = np.zeros(n_steps)
     Q_traj = np.zeros((n_steps, len(x_est_init)-1, len(x_est_init)-1))
 
+    y_traj = np.zeros((n_steps, len(sim_sensors.measurement_function(x_init))))
+
     x_est = x_est_init
     Q = Q_init
 
@@ -99,10 +102,10 @@ def main():
 
     for i in xrange(1, n_steps):
         # Get measurements.
-        y = sim_sensors.add_noise(sim_sensors.measurement_function(x_traj[i-1]))
+        y_traj[i] = sim_sensors.add_noise(sim_sensors.measurement_function(x_traj[i-1]))
         # Update Kalman filter estimate.
         ukf.propagate_dynamics(u_traj[i])
-        ukf.update_measurement(y)
+        ukf.update_measurement(y_traj[i])
         x_est_traj[i] = ukf.x_est
         Q_traj[i] = ukf.Q
         # Simulate the true dynamics.
@@ -115,7 +118,7 @@ def main():
     print 'Final estimate covariance Q = '
     print ukf.Q
 
-    ax = plt.subplot(2, 1, 1)
+    ax = plt.subplot(3, 1, 1)
     colors = ['black', 'red', 'green', 'blue']
     for i in xrange(4):
         plt.plot(t_traj, x_traj[:, i], color=colors[i], linestyle='-',
@@ -126,7 +129,7 @@ def main():
     plt.ylabel('Quaternion')
     plt.legend(framealpha=0.5)
     
-    ax = plt.subplot(2, 1, 2)
+    ax2 = plt.subplot(3, 1, 2, sharex=ax)
     Q_traj_padded = np.concatenate((
         np.zeros((n_steps, len(x_est_init), 1)),
         np.concatenate((
@@ -136,11 +139,19 @@ def main():
     for i in [0, 1, 2]:
         plt.plot(t_traj, x_traj[:, i+4], color=colors[i+1], linestyle='-',
             label='w[{:d}] true'.format(i))
-        plot_single_state_vs_time(ax, t_traj, x_est_traj, Q_traj_padded, i+4,
+        plot_single_state_vs_time(ax2, t_traj, x_est_traj, Q_traj_padded, i+4,
             color=colors[i+1], label='w[{:d}] est'.format(i),
             linestyle='--')
     plt.xlabel('Time [s]')
     plt.ylabel('Angular rate [rad / s]')
+    plt.legend(framealpha=0.5)
+
+    ax3 = plt.subplot(3, 1, 3, sharex=ax)
+    for i in xrange(3):
+        plt.plot(t_traj, y_traj[:, i + 3], color=colors[i+1], marker='x',
+            label='mag[{:d}]'.format(i))
+    plt.xlabel('Time [s]')
+    plt.ylabel('Mag Field [uT]')
     plt.legend(framealpha=0.5)
 
     plt.show()
