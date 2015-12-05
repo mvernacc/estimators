@@ -29,7 +29,7 @@ def allan(times, values, n_points=100):
 
     '''
     # Averaging times to evaluate.
-    dt = times[1] - times[0]
+    dt = np.mean(np.diff(times))
     t_range = times[-1] - times[0]
     # The shortest averaging time is long enough for 10 samples per bin.
     t_avg_short = dt * 10
@@ -86,7 +86,7 @@ def rate_noise_from_allan(t_avg, adev, fit_params=False):
     log_adev = np.log10(adev[ind_start:ind_end])
     p = np.polyfit(log_t, log_adev, 1)
     # p[0] is the slope, it should be -0.5 according to Woodman [1].
-    assert abs(p[0] - -0.5) < 0.1, 'The log log slope is {:.3f}, it should be -0.5'\
+    assert abs(p[0] - -0.5) < 0.2, 'The log log slope is {:.3f}, it should be -0.5'\
         .format(p[0])
     # The rate noise is the linear fit evaluated at t_avg = 1, Woodman [1].
     log_rate_noise = p[0]*np.log10(1) + p[1]
@@ -103,16 +103,16 @@ def main(args):
     with open(args.in_file, 'rb') as f:
         data = pickle.load(f)
 
-    y_noisy = data['y_noisy']
+    y = np.deg2rad(data[args.data_name])
 
     if 'time' in data:
         time = data['time']
     else:
-        n = y_noisy.shape[0]
+        n = y.shape[0]
         dt = 1e-2
         time = np.linspace(0, (n-1)*dt, n)
 
-    t_avg, adev = allan(time, y_noisy[:,0])
+    t_avg, adev = allan(time, y[:,0])
 
     rate_noise, p = rate_noise_from_allan(t_avg, adev, fit_params=True)
     t_fit = np.array([t_avg[0], 10])
@@ -141,5 +141,6 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Allan variance analysis of gyroscope noise.')
     parser.add_argument('in_file', type=str, help='Pickle file of gyro data.')
+    parser.add_argument('data_name', type=str, help='Key for data in the pickle dict.')
     args = parser.parse_args()
     main(args)
