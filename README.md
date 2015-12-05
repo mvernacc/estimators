@@ -10,6 +10,9 @@ Measurement functions and noise models of common sensors.
 
 Also contains a class KalmanSensors for packaging several sensor models together into a single object, which can then provide a combined measurement function to a multi-sensor Kalman Filter. KalmanSensors also provides a framework for augmenting the system state with sensor bias estimates.
 
+### `nonlinear_kalman.py`
+Extended and Uscented Kalman Filters for non-linear systems.
+
 ### `kraft_quat_ufk.py`
 A quaternion-based Unscented Kalman Filter for estimation on a system with an attitude state. Based on a paper by E. Kraft [1].
 
