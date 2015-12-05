@@ -8,7 +8,7 @@ MIT Rocket Team
 import numpy as np
 from sensor_interface import StatefulSensor
 import transforms3d.quaternions as quat
-from utils import quat_utils
+from estimators.utils import quat_utils
 
 class Accelerometer(StatefulSensor):
     def __init__(self, a_bias_sensor=None, noise_std_dev=4*9.81e-3):

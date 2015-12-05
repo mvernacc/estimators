@@ -8,7 +8,7 @@ MIT Rocket Team
 import numpy as np
 from sensor_interface import StatefulSensor
 import transforms3d.quaternions as quat
-from utils import quat_utils
+from estimators.utils import quat_utils
 
 class Magnetometer(StatefulSensor):
     def __init__(self, magnitude=52.2,
