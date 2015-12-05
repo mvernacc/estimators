@@ -10,10 +10,10 @@ import pykalman
 from scipy.integrate import odeint
 import transforms3d.quaternions as quat
 
-from sensors.sensor_interface import KalmanSensors
-from sensors.magnetometer import Magnetometer
-from sensors.rate_gyro import RateGyro
-from sensors.accelerometer import Accelerometer
+from sensor_models.sensor_interface import KalmanSensors
+from sensor_models.magnetometer import Magnetometer
+from sensor_models.rate_gyro import RateGyro
+from sensor_models.accelerometer import Accelerometer
 
 from kraft_quat_ukf import KraftQautUKF
 from utils import quat_utils
