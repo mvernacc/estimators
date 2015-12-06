@@ -116,8 +116,6 @@ def main(args):
         y_units = 'uT'
         y = data[args.data_name]
 
-
-
     if 'time' in data:
         time = data['time']
         dt = np.mean(np.diff(time))
@@ -127,7 +125,15 @@ def main(args):
         time = np.linspace(0, (n-1)*dt, n)
 
     plot_colors = ['red', 'green', 'blue']
+    axis_names = ['$x$', '$y$', '$z$']
+    title_d = {
+        'accel_data': 'Accelerometer',
+        'gyro_data': 'Rate Gyro',
+        'mag_data': 'Magnetometer',
+    }
 
+
+    plt.figure(figsize=(5,5))
     for i in xrange(3):
         print 'Axis {:d}:'.format(i)
         t_avg, adev = allan(time, y[:,i])
@@ -142,18 +148,23 @@ def main(args):
         print '\tAllan noise = {:.3e} {:s}'.format(rate_noise,
             y_units + ' s**0.5')
 
-        plt.loglog(t_avg, adev, label='Data', color=plot_colors[i])
+        plt.loglog(t_avg, adev, color=plot_colors[i],
+            label='{:s}: allan dev.'.format(axis_names[i]), alpha=0.7)
         plt.xlabel('Averaging time [s]')
         plt.ylabel('Allan Deviation [{:s}]'.format(y_units))
-        plt.title('{:s} Allan Deviation'.format(args.in_file))
+        
+        plt.title('{:s} Allan Deviation'.format(title_d[args.data_name]))
         plt.grid(b=True, which='major')
         plt.grid(b=True, which='minor')
 
-        plt.loglog(t_fit, fit, color=plot_colors[i], linestyle='--', label='Rate noise fit')
-        plt.loglog(1, rate_noise, color=plot_colors[i], marker='o', label='Rate noise')
+        plt.loglog(t_fit, fit, color=plot_colors[i],
+            linestyle='--', label='{:s}: linear fit'.format(axis_names[i]))
+        plt.loglog(1, rate_noise, color=plot_colors[i], marker='o')
 
     plt.legend(framealpha=0.5)
+    plt.tight_layout()
 
+    plt.savefig('{:s}_allan.pdf'.format(args.data_name))
     plt.show()
 
 
