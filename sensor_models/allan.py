@@ -103,7 +103,18 @@ def main(args):
     with open(args.in_file, 'rb') as f:
         data = pickle.load(f)
 
-    y = np.deg2rad(data[args.data_name])
+    if args.data_name == 'gyro_data':
+        # Gyro data from MPU-9150 is in deg/s.
+        y_units = 'deg/s'
+    if args.data_name == 'accel_data':
+        # Accel data from MPU-9150 is in g.
+        y_units = 'g'
+    if args.data_name == 'mag_data':
+        # Magnetometer data from MPU-9150 is in microtesla.
+        y_units = 'uT'
+    y = data[args.data_name]
+
+
 
     if 'time' in data:
         time = data['time']
@@ -112,25 +123,28 @@ def main(args):
         dt = 1e-2
         time = np.linspace(0, (n-1)*dt, n)
 
-    t_avg, adev = allan(time, y[:,0])
+    plot_colors = ['red', 'green', 'blue']
 
-    rate_noise, p = rate_noise_from_allan(t_avg, adev, fit_params=True)
-    t_fit = np.array([t_avg[0], 10])
-    fit_log = p[0]*np.log10(t_fit) + p[1]
-    fit = np.power(10, fit_log)
+    for i in xrange(3):
+        t_avg, adev = allan(time, y[:,i])
 
-    print 'Rate noise = {:.3e} rad s**-0.5 ({:.3e} deg s**0.5)'.format(rate_noise,
-        np.rad2deg(rate_noise))
+        rate_noise, p = rate_noise_from_allan(t_avg, adev, fit_params=True)
+        t_fit = np.array([t_avg[0], 10])
+        fit_log = p[0]*np.log10(t_fit) + p[1]
+        fit = np.power(10, fit_log)
 
-    plt.loglog(t_avg, np.rad2deg(adev), label='Data')
-    plt.xlabel('Averaging time [s]')
-    plt.ylabel('Allan Deviation [deg / s]')
-    plt.title('{:s} Allan Deviation'.format(args.in_file))
-    plt.grid(b=True, which='major')
-    plt.grid(b=True, which='minor')
+        print 'Rate noise = {:.3e} {:s}'.format(rate_noise,
+            y_units + ' s**0.5')
 
-    plt.loglog(t_fit, np.rad2deg(fit), color='r', linestyle='--', label='Rate noise fit')
-    plt.loglog(1, np.rad2deg(rate_noise), color='r', marker='o', label='Rate noise')
+        plt.loglog(t_avg, adev, label='Data', color=plot_colors[i])
+        plt.xlabel('Averaging time [s]')
+        plt.ylabel('Allan Deviation [{:s}]'.format(y_units))
+        plt.title('{:s} Allan Deviation'.format(args.in_file))
+        plt.grid(b=True, which='major')
+        plt.grid(b=True, which='minor')
+
+        plt.loglog(t_fit, fit, color=plot_colors[i], linestyle='--', label='Rate noise fit')
+        plt.loglog(1, rate_noise, color=plot_colors[i], marker='o', label='Rate noise')
 
     plt.legend(framealpha=0.5)
 
