@@ -106,18 +106,21 @@ def main(args):
     if args.data_name == 'gyro_data':
         # Gyro data from MPU-9150 is in deg/s.
         y_units = 'deg/s'
+        y = data[args.data_name]
     if args.data_name == 'accel_data':
-        # Accel data from MPU-9150 is in g.
-        y_units = 'g'
+        # Accel data from MPU-9150 is in g, convert to m/s**2.
+        y_units = 'm/s**2'
+        y = 9.81 * data[args.data_name]
     if args.data_name == 'mag_data':
         # Magnetometer data from MPU-9150 is in microtesla.
         y_units = 'uT'
-    y = data[args.data_name]
+        y = data[args.data_name]
 
 
 
     if 'time' in data:
         time = data['time']
+        dt = np.mean(np.diff(time))
     else:
         n = y.shape[0]
         dt = 1e-2
@@ -126,6 +129,7 @@ def main(args):
     plot_colors = ['red', 'green', 'blue']
 
     for i in xrange(3):
+        print 'Axis {:d}:'.format(i)
         t_avg, adev = allan(time, y[:,i])
 
         rate_noise, p = rate_noise_from_allan(t_avg, adev, fit_params=True)
@@ -133,7 +137,9 @@ def main(args):
         fit_log = p[0]*np.log10(t_fit) + p[1]
         fit = np.power(10, fit_log)
 
-        print 'Rate noise = {:.3e} {:s}'.format(rate_noise,
+        print '\tstd. dev. noise = {:.3e} {:s} at {:.1f} Hz'.format(
+            np.std(y[:,i]), y_units, 1.0 / dt)
+        print '\tAllan noise = {:.3e} {:s}'.format(rate_noise,
             y_units + ' s**0.5')
 
         plt.loglog(t_avg, adev, label='Data', color=plot_colors[i])
