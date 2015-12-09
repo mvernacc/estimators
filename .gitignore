@@ -57,3 +57,7 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# Outputs of Allan variance graphing
+sensor_models/*allan.pdf
+sensor_models/*allan.png
