@@ -11,7 +11,9 @@ import transforms3d.quaternions as quat
 from estimators.utils import quat_utils
 
 class Magnetometer(StatefulSensor):
-    def __init__(self, magnitude=52.2,
+    def __init__(self,
+        noise_std_dev=0.8,
+        magnitude=52.2,
         declination=np.deg2rad(-14.76),
         inclination=np.deg2rad(67.31),
         h_bias_ned=None,
@@ -36,6 +38,8 @@ class Magnetometer(StatefulSensor):
         field changes with time, so these values should be updated every year or so.
 
         Arguments:
+            noise_std_dev (real): Standard deviation of measurement noise
+                [units: microtesla].
             magnitude (real): The magnitude of the Earth's magnetic field
                 at the launch site [units: microtesla].
             declination (real): The magnetic declination at the launch site
@@ -82,7 +86,7 @@ class Magnetometer(StatefulSensor):
 
         # The noise covariance is based on the worst case std. dev. in table
         # 2 of reference [2].
-        noise_cov = np.diag([(0.8)**2]*3)
+        noise_cov = np.diag([(noise_std_dev)**2]*3)
         sensor_state_process_covariance = np.diag([0.5, 0.5, 0.5])**2
         super(self.__class__, self).__init__(noise_cov,
             sensor_state_process_covariance)
