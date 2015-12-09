@@ -165,6 +165,7 @@ def main(args):
     plt.tight_layout()
 
     plt.savefig('{:s}_allan.pdf'.format(args.data_name))
+    plt.savefig('{:s}_allan.png'.format(args.data_name))
     plt.show()
 
 
