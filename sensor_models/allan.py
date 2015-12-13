@@ -148,6 +148,11 @@ def main(args):
         print '\tAllan noise = {:.3e} {:s}'.format(rate_noise,
             y_units + ' s**0.5')
 
+        bias_instability = min(adev)
+        correlation_time = t_avg[np.argmin(adev)]
+        print '\tBias instability of {:.3e} {:s} at {:.1f} s'.format(
+            bias_instability, y_units, correlation_time)
+
         plt.loglog(t_avg, adev, color=plot_colors[i],
             label='{:s}: allan dev.'.format(axis_names[i]), alpha=0.7)
         plt.xlabel('Averaging time [s]')
