@@ -18,6 +18,15 @@ class MagTest(unittest.TestCase):
         self.assertTrue(np.allclose(b, b2))
         self.assertTrue(np.allclose(D, D2))
 
+    def test_get_meas_variance_zero(self):
+        b = np.zeros(3)
+        D = np.zeros((3,3))
+        h = np.ones(3)
+        noise_cov = np.diag(np.ones(3))
+        v = mag.get_meas_variance(noise_cov, b, D, h)
+        self.assertTrue(v.shape == (1,1) or v.shape == ())
+        self.assertTrue(np.allclose(v, 4*3 + 2*3))
+
 
 if __name__ == '__main__':
     unittest.main()

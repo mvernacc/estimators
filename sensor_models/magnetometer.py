@@ -9,6 +9,7 @@ import numpy as np
 from sensor_interface import StatefulSensor
 import transforms3d.quaternions as quat
 from estimators.utils import quat_utils
+from estimators.nonlinear_kalman import UnscentedKalmanFilter
 
 class Magnetometer(StatefulSensor):
     def __init__(self,
@@ -145,7 +146,7 @@ class Magnetometer(StatefulSensor):
         
         h_earth_sensor = quat_utils.rotate_frame(self.h_earth_ned, q_ned2sensor)
         y = np.dot(np.linalg.inv(np.eye(3) + D), np.array([h_earth_sensor + b]).T)
-        return y
+        return np.squeeze(y)
 
 
     def sensor_state_transition(self, x, sensor_state):
@@ -248,3 +249,114 @@ def bD_to_sensor_state_vector(b, D):
             Available: http://arc.aiaa.org/doi/abs/10.2514/1.6278
     '''
     return np.array([b[0], b[1], b[2], D[0,0], D[1,1], D[2,2], D[0,1], D[0,2], D[1,2]])
+
+
+def get_meas_variance(noise_cov, b, D, h_meas):
+    '''Equation 5b in Crassidis [1].
+
+    Arguments:
+        noise_cov (real 3x3 matrix): The magnetometer measurement noise covariance
+            [units: microtesla**2].
+        b (real 3-vector): The bias vector b as defined in [1] [units: microtesla].
+        D (real 3x3 matrix): The symmetric scale factor and non-orthogonality
+            matrix D as defined in [1] [units: none].
+        h_meas (real 3-vector): The magnetometer measurement [units: microtesla].
+
+    Returns:
+        real: The variance of the attitude-independent observation z
+            [units: microtesla**2].
+
+    References:
+        [1] J. L. Crassidis, K.-L. Lai, and R. R. Harman, 'Real-time attitude-
+            independent three-axis magnetometer calibration,' Journal of Guidance,
+            Control, and Dynamics, vol. 28, no. 1, pp. 115-120, Jan 2005. [Online].
+            Available: http://arc.aiaa.org/doi/abs/10.2514/1.6278
+    '''
+    a = np.dot((np.eye(3) + D), np.array([h_meas]).T) - np.array([b]).T
+    return 4 * np.dot(a.T, np.dot(noise_cov, a)) + 2 * np.trace(noise_cov**2)
+
+
+class MagCalUKF(object):
+    def __init__(self, noise_cov, magnitude=52.2, b=None, D=None):
+        '''Magnetometer calibration Unscented Kalman Filter.
+
+        Arguments:
+            noise_cov (real 3x3 matrix): The magnetometer measurement noise covariance
+                [units: microtesla**2].
+            magnitude (real): The magnitude of the Earth's magnetic field
+                at the launch site [units: microtesla].
+            b (real 3-vector): The bias vector b as defined in [1] [units: microtesla].
+            D (real 3x3 matrix): The symmetric scale factor and non-orthogonality
+                matrix D as defined in [1] [units: none].
+
+        References:
+            [1] J. L. Crassidis, K.-L. Lai, and R. R. Harman, 'Real-time attitude-
+                independent three-axis magnetometer calibration,' Journal of Guidance,
+                Control, and Dynamics, vol. 28, no. 1, pp. 115-120, Jan 2005. [Online].
+                Available: http://arc.aiaa.org/doi/abs/10.2514/1.6278
+        '''
+        self.magnitude = magnitude
+
+        # The sensor bias standard deviation [units: microtesla]
+        bias_std_dev = 5
+        # The sensor scale factor and non-orthogonality standard dev
+        # [units: none]
+        D_std_dev = 0.1
+
+        # Initial state
+        if b is None:
+            self.b = np.random.normal(0, bias_std_dev, size=3)
+        else:
+            self.b = np.array(b)
+            assert(len(self.b) == 3)
+
+        if D is None:
+            theta = np.random.normal(0, D_std_dev, size=9)
+            junk, self.D = sensor_state_vector_to_bD(theta)
+            # Make D symmetric
+            self.D = (self.D + self.D.T) / 2
+        else:
+            self.D = np.array(D)
+            assert(self.D.shape == (3,3))
+        x_init = bD_to_sensor_state_vector(self.b, self.D)
+
+        # Initial state covariance
+        Q_init = np.diag(np.hstack(([bias_std_dev]*3, [D_std_dev]*6)))**2
+
+        # Measurement noise variance (eqn 3-5c in Crassidis [1]).
+        self.noise_cov = noise_cov
+        meas_variance = get_meas_variance(noise_cov, self.b, self.D, np.zeros(3))
+
+        # Estimator
+        self.ukf = UnscentedKalmanFilter(x_init, Q_init,
+            f=None, W=None,
+            h=self.measurement_function, R=meas_variance)
+
+        # The latest magnetometer measurement (B_k in Crassidis [1]).
+        self.h_meas = None
+
+
+    def measurement_function(self, x):
+        '''Eqn 10 in Crassidis [1].'''
+        h = np.array([self.h_meas]).T
+        b, D = sensor_state_vector_to_bD(x)
+        return np.squeeze(-np.dot(h.T, np.dot(2*D + D**2, h)) \
+            + 2 * np.dot(h.T, np.dot(np.eye(3) + D, np.array([b]).T)) \
+            - np.dot(b, b))
+
+
+    def update(self, h_meas):
+        self.h_meas = h_meas
+        print h_meas
+        # Update the attitude-independed observation covariance,
+        # beacuse it depends on the measured magnetic field
+        self.ukf.R = get_meas_variance(self.noise_cov, self.b, self.D, self.h_meas)
+
+        # Compute the attitude-independed observation.
+        # Eqn 3 from Crassidis [1].
+        z = np.dot(h_meas, h_meas) - self.magnitude**2
+
+        # Update the estimator with the new observation.
+        self.ukf.update_measurement(z)
+
+        self.b, self.D = sensor_state_vector_to_bD(self.ukf.x_est)
