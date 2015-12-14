@@ -16,8 +16,8 @@ class Magnetometer(StatefulSensor):
         magnitude=52.2,
         declination=np.deg2rad(-14.76),
         inclination=np.deg2rad(67.31),
-        h_bias_ned=None,
-        h_bias_sensor=None,):
+        b=None,
+        D=None):
         '''Magnetic compass sensor model.
 
         In order to compute Earth-fixed orientation from the sensor measurements,
@@ -48,17 +48,11 @@ class Magnetometer(StatefulSensor):
             inclination (real): The magnetic inclination at the launch site
                 [units: radian]. This is the angle from the local horizontal
                 plane to the magnetic field vector. Positive values point down.
-            h_bias_ned (real): The magnetic field bias vector in a North-East-Down
-                coordinate system. If h_bias_ned has the default value of None,
-                it will be initialized to a random value. This represents magnetic
-                sources (ferromagnetic materials, currents) which move with the world.
-                [units: microtesla].
-            h_bias_sensor (real): The magnetic field bias vector in the sensor
-                coordinate system. If h_bias_ned has the default value of None,
-                it will be initialized to a random value. This represents magnetic
-                sources (ferromagnetic materials, currents) which move with the sensor
-                or vehicle. This bias is added in addition to h_bias_ned.
-                [units: microtesla].
+            b (real 3-vector): The bias vector b as defined in [3]. If b has the
+                default value of None, it will be intialized to a random value.
+            D (real 3x3 matrix): The symmetric scale factor and non-orthogonality
+                matrix D as defined in [3]. If D has the default value of None,
+                it will be intialized to a random value.
 
         References:
             [1] 'Magnetic Field Calculators,' National Oceanic and Atmospheric Administration.
@@ -67,27 +61,41 @@ class Magnetometer(StatefulSensor):
                 Determining Orientation by Inertial and Magnetic Sensing,'
                 IEEE Transactions on Biomedical Engineering, vol. 53, no. 7,
                 July 2006.
+            [3] J. L. Crassidis, K.-L. Lai, and R. R. Harman, 'Real-time attitude-
+                independent three-axis magnetometer calibration,' Journal of Guidance,
+                Control, and Dynamics, vol. 28, no. 1, pp. 115-120, Jan 2005. [Online].
+                Available: http://arc.aiaa.org/doi/abs/10.2514/1.6278
         '''
         assert(magnitude > 0)
         assert(magnitude <  100)
         self.h_earth_ned = dec_inc_to_vector(magnitude, declination, inclination)
         
-        if h_bias_ned is None:
-            self.h_bias_ned = np.random.normal(0, 5, size=3)
+        # The sensor bias standard deviation [units: microtesla]
+        bias_std_dev = 5
+        # The sensor scale factor and non-orthogonality standard dev
+        # [units: none]
+        D_std_dev = 0.1
+        if b is None:
+            self.b = np.random.normal(0, bias_std_dev, size=3)
         else:
-            self.h_bias_ned = np.array(h_bias_ned)
-            assert(len(self.h_bias_ned) == 3)
+            self.b = np.array(b)
+            assert(len(self.b) == 3)
         
-        if h_bias_sensor is None:
-            self.h_bias_sensor = np.random.normal(0, 5, size=3)
+        if D is None:
+            theta = np.random.normal(0, D_std_dev, size=9)
+            junk, self.D = sensor_state_vector_to_bD(theta)
+            # Make D symmetric
+            self.D = (self.D + self.D.T) / 2
         else:
-            self.h_bias_sensor = np.array(h_bias_sensor)
-            assert(len(self.h_bias_sensor) == 3)
+            self.D = np.array(D)
+            assert(self.D.shape == (3,3))
 
         # The noise covariance is based on the worst case std. dev. in table
         # 2 of reference [2].
         noise_cov = np.diag([(noise_std_dev)**2]*3)
-        sensor_state_process_covariance = np.diag([0.5, 0.5, 0.5])**2
+        # I made up values for the process covaraince.
+        sensor_state_process_covariance = np.diag(
+            np.hstack(([0.5]*3, [1e-6]*6)))**2
         super(self.__class__, self).__init__(noise_cov,
             sensor_state_process_covariance)
 
@@ -114,6 +122,7 @@ class Magnetometer(StatefulSensor):
                     [units: microtesla].
                 * The magnetic field bias in the sensor frame z direction
                     [units: microtesla].
+                * The six parameters of Crassidis's D matrix [3] [units: none].
 
         Returns:
             (real vector): The measurement, magnetic field vector in the sensor
@@ -128,14 +137,14 @@ class Magnetometer(StatefulSensor):
         else:
             raise ValueError
 
-        h_bias_sensor =  quat_utils.rotate_frame(self.h_bias_ned, q_ned2sensor) \
-            + self.h_bias_sensor
+        b = self.b
+        D = self.D
         if sensor_state is not None:
-            assert(len(sensor_state) == 3)
-            h_bias_sensor = sensor_state
+            assert(len(sensor_state) == 9)
+            b, D = sensor_state_vector_to_bD(sensor_state)
         
         h_earth_sensor = quat_utils.rotate_frame(self.h_earth_ned, q_ned2sensor)
-        y = h_earth_sensor + h_bias_sensor
+        y = np.dot(np.linalg.inv(np.eye(3) + D), np.array([h_earth_sensor + b]).T)
         return y
 
 
@@ -154,6 +163,7 @@ class Magnetometer(StatefulSensor):
                     [units: microtesla].
                 * The magnetic field bias in the sensor frame z direction
                     [units: microtesla].
+                * The six parameters of Crassidis's D matrix [3] [units: none].
 
         Returns:
             real vector: The new sensor state, which contains the following values:
@@ -163,9 +173,9 @@ class Magnetometer(StatefulSensor):
                     [units: microtesla].
                 * The magnetic field bias in the sensor frame z direction
                     [units: microtesla].
+                * The six parameters of Crassidis's D matrix [3] [units: none].
         '''
-        h_bias_sensor = sensor_state
-        return h_bias_sensor
+        return sensor_state
 
 
 def dec_inc_to_vector(magnitude, declination, inclination):
@@ -194,3 +204,47 @@ def dec_inc_to_vector(magnitude, declination, inclination):
     return h_ned
 
 
+def sensor_state_vector_to_bD(theta):
+    '''Convert the 9-element sensor state to the D matrix and b vector.
+
+    Arguments:
+        theta (real 9-vector): The paramter vector as defined in [1].
+
+    Returns:
+        real 3-vector: The bias vector b as defined in [1].
+        real 3x3 matrix: The symmetric scale factor and non-orthogonality
+            matrix D as defined in [1].
+
+    References:
+        [1] J. L. Crassidis, K.-L. Lai, and R. R. Harman, 'Real-time attitude-
+            independent three-axis magnetometer calibration,' Journal of Guidance,
+            Control, and Dynamics, vol. 28, no. 1, pp. 115-120, Jan 2005. [Online].
+            Available: http://arc.aiaa.org/doi/abs/10.2514/1.6278
+    '''
+    b = theta[0:3]
+    D = np.array([
+        [theta[3], theta[6], theta[7]],
+        [theta[6], theta[4], theta[8]],
+        [theta[7], theta[8], theta[5]]
+        ])
+    return (b, D)
+
+
+def bD_to_sensor_state_vector(b, D):
+    '''Convert the D matrix and b vector to the 9-element sensor state.
+
+    Arguments:
+        b (real 3-vector): The bias vector b as defined in [1].
+        D (real 3x3 matrix): The symmetric scale factor and non-orthogonality
+            matrix D as defined in [1].
+
+    Returns:
+        real 9-vector: The paramter vector as defined in [1].
+        
+    References:
+        [1] J. L. Crassidis, K.-L. Lai, and R. R. Harman, 'Real-time attitude-
+            independent three-axis magnetometer calibration,' Journal of Guidance,
+            Control, and Dynamics, vol. 28, no. 1, pp. 115-120, Jan 2005. [Online].
+            Available: http://arc.aiaa.org/doi/abs/10.2514/1.6278
+    '''
+    return np.array([b[0], b[1], b[2], D[0,0], D[1,1], D[2,2], D[0,1], D[0,2], D[1,2]])
