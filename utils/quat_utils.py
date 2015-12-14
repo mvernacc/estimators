@@ -239,3 +239,23 @@ def rotate_frame(v_A, q_A2B):
     '''
     v_B = quat.rotate_vector(v_A, quat.qinverse(q_A2B))
     return v_B
+
+
+def random_quat():
+    '''Get a random unit quaternion from a uniform distribution over
+    SO(3).
+
+    References:
+        https://www-preview.ri.cmu.edu/pub_files/pub4/kuffner_james_2004_1/kuffner_james_2004_1.pdf
+    '''
+    s = np.random.rand()
+    s1 = (1 - s)**0.5
+    s2 = s**0.5
+    t1 = 2 * np.pi * np.random.rand()
+    t2 = 2 * np.pi * np.random.rand()
+    w = np.cos(t2) * s2
+    x = np.sin(t1) * s1
+    y = np.cos(t1) * s1
+    z = np.sin(t2) * s2
+    return np.array([w, x, y, z])
+
