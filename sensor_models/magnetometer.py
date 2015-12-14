@@ -347,7 +347,7 @@ class MagCalUKF(object):
 
     def update(self, h_meas):
         self.h_meas = h_meas
-        print h_meas
+
         # Update the attitude-independed observation covariance,
         # beacuse it depends on the measured magnetic field
         self.ukf.R = get_meas_variance(self.noise_cov, self.b, self.D, self.h_meas)
