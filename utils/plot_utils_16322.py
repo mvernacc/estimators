@@ -41,4 +41,6 @@ def plot_single_state_vs_time(ax, time, state, covariance, which_state, **kwargs
     std_dev = [v**0.5 for v in covariance[:, which_state, which_state]]
     
     ax.plot(time, mean, **kwargs)
+    # Remove the lable from the filled swath
+    kwargs.pop('label', None)
     ax.fill_between(time, mean + std_dev, mean - std_dev, alpha=0.5, **kwargs)
