@@ -13,13 +13,24 @@ from estimators.utils import quat_utils
 from estimators.utils.plot_utils_16322 import plot_single_state_vs_time
 import argparse
 import cPickle as pickle
+from scipy.optimize import leastsq
+
+
+def objective_function(x, mag_data):
+    b, D  = magnetometer.sensor_state_vector_to_bD(x)
+    y = np.zeros(mag_data.shape[0])
+    for i in xrange(mag_data.shape[0]):
+        post_cal = np.squeeze(np.dot(np.eye(3) + D, np.array([mag_data[i]]).T))\
+            - b
+        y[i] = np.linalg.norm(post_cal) - 52.2
+    return y
 
 
 
 def main(args):    
     mag = magnetometer.Magnetometer()
-    magcal = magnetometer.MagCalUKF(mag.noise_cov, np.linalg.norm(mag.h_earth_ned))
 
+    # Get data
     if args.meas_source == 'pickle':
         with open(args.pkl_file, 'rb') as f:
             data = pickle.load(f)
@@ -35,74 +46,92 @@ def main(args):
             # q = [1,0,0,0]
             noise = np.random.multivariate_normal(np.zeros(3), mag.noise_cov)
             mag_data[i] = mag.measurement_function(q) + noise
-
-
-    x = np.zeros((n_steps, 9))
-    Q = np.zeros((n_steps, 9, 9))
-    for i in xrange(n_steps):
-        h_meas = mag_data[i]
-
-        # Update the estimator
-        magcal.update(h_meas)
-
-        # Record the estimator state
-        x[i] = magcal.ukf.x_est
-        Q[i] = magcal.ukf.Q
-
-    if args.meas_source == 'sim':
         print 'True b, D:'
         print mag.b
         print mag.D
-    print '\nEstimated b, D:'
-    print magcal.b
-    print magcal.D
 
-    plot_colors = ['red', 'green', 'blue', 'cyan', 'magenta', 'orange']
-    t = range(n_steps)
-    ax1 = plt.subplot(2,1,1)
-    for i in xrange(3):
-        if args.meas_source == 'sim':
-            plt.axhline(y=mag.b[i], color=plot_colors[i], label='b[{:d}] true'.format(i))
-        plot_single_state_vs_time(ax1, t, x, Q, i,
-            color=plot_colors[i], label='b[{:d}] est'.format(i),
-            linestyle='--')
-    plt.xlabel('Step')
-    plt.ylabel('Magnetometer bias [uT]')
-    plt.legend(framealpha=0.5)
+    # Inital guess at calibration parameters.
+    b_init  = np.mean(mag_data, axis=0)
+    D_init = np.zeros((3,3))
 
-    ax2 = plt.subplot(2,1,2)
-    index_map = {
-        0: (0,0),
-        1: (1,1),
-        2: (2,2),
-        3: (0,1),
-        4: (0,2),
-        5: (1,2)
-    }
-    for i in xrange(6):
-        if args.meas_source == 'sim':
-            plt.axhline(y=mag.D[index_map[i]], color=plot_colors[i],
-                label='D[{:d},{:d}] true'.format(*index_map[i]))
-        plot_single_state_vs_time(ax2, t, x, Q, i+3,
-            color=plot_colors[i], label='D[{:d},{:d}] est'.format(*index_map[i]),
-            linestyle='--')
-    plt.xlabel('Step')
-    plt.ylabel('Magnetometer scale factors [-]')
-    plt.legend(framealpha=0.5)
+    # Solve for the calibration parameters.
+    if args.solver == 'leastsq':
+        print b_init
+        soln = leastsq(objective_function,
+            magnetometer.bD_to_sensor_state_vector(b_init, D_init),
+            args=(mag_data)
+            )
+        x_opt = soln[0]
+        b, D = magnetometer.sensor_state_vector_to_bD(x_opt)
+        print '\nOptimized b, D:'
+        print b
+        print D
+
+    elif args.solver == 'ukf':
+        magcal = magnetometer.MagCalUKF(mag.noise_cov, np.linalg.norm(mag.h_earth_ned), b=b_init, D=D_init)
+        x = np.zeros((n_steps, 9))
+        Q = np.zeros((n_steps, 9, 9))
+        for i in xrange(n_steps):
+            h_meas = mag_data[i]
+
+            # Update the estimator
+            magcal.update(h_meas)
+
+            # Record the estimator state
+            x[i] = magcal.ukf.x_est
+            Q[i] = magcal.ukf.Q
+
+        b = magcal.b
+        D = magcal.D
+        print '\nEstimated b, D:'
+        print b
+        print D
+
+        plot_colors = ['red', 'green', 'blue', 'cyan', 'magenta', 'orange']
+        t = range(n_steps)
+        ax1 = plt.subplot(2,1,1)
+        for i in xrange(3):
+            if args.meas_source == 'sim':
+                plt.axhline(y=mag.b[i], color=plot_colors[i], label='b[{:d}] true'.format(i))
+            plot_single_state_vs_time(ax1, t, x, Q, i,
+                color=plot_colors[i], label='b[{:d}] est'.format(i),
+                linestyle='--')
+        plt.xlabel('Step')
+        plt.ylabel('Magnetometer bias [uT]')
+        plt.legend(framealpha=0.5)
+
+        ax2 = plt.subplot(2,1,2)
+        index_map = {
+            0: (0,0),
+            1: (1,1),
+            2: (2,2),
+            3: (0,1),
+            4: (0,2),
+            5: (1,2)
+        }
+        for i in xrange(6):
+            if args.meas_source == 'sim':
+                plt.axhline(y=mag.D[index_map[i]], color=plot_colors[i],
+                    label='D[{:d},{:d}] true'.format(*index_map[i]))
+            plot_single_state_vs_time(ax2, t, x, Q, i+3,
+                color=plot_colors[i], label='D[{:d},{:d}] est'.format(*index_map[i]),
+                linestyle='--')
+        plt.xlabel('Step')
+        plt.ylabel('Magnetometer scale factors [-]')
+        plt.legend(framealpha=0.5)
 
     # Save the magnetometer calibration data.
     with open('mag_cal.p', 'wb') as f:
         pickle.dump({
-            'b': magcal.b,
-            'D': magcal.D,
-            'covar': magcal.ukf.Q
+            'b': b,
+            'D': D
             }, f)
 
     # 3D plot of pre- and post-cal data
     mag_data_post_cal = np.zeros(mag_data.shape)
     for i in xrange(n_steps):
-        mag_data_post_cal[i] = np.squeeze(np.dot(np.eye(3) + magcal.D, np.array([mag_data[i]]).T))\
-            - magcal.b
+        mag_data_post_cal[i] = np.squeeze(np.dot(np.eye(3) + D, np.array([mag_data[i]]).T))\
+            - b
 
     fig = plt.figure()
     ax3d = fig.add_subplot(111, projection='3d')
@@ -114,6 +143,7 @@ def main(args):
     plt.legend()
     plt.xlabel('Magnetic field [uT]')
     plt.ylabel('Magnetic field [uT]')
+    plt.title('Magnetometer calibration by {:s}'.format(args.solver))
 
     # HACK for equal axes
     # http://stackoverflow.com/a/9349255
@@ -131,6 +161,8 @@ if __name__ == '__main__':
         required=True)
     parser.add_argument('--pkl_file', type=str, required=False,
         help='The pickle file containing the measurement data. Required if --meas_source is "pickle".')
+    parser.add_argument('--solver', type=str, choices=['ukf', 'leastsq'],
+        required=True)
     args = parser.parse_args()
     if args.meas_source == 'pickle' and args.pkl_file is None:
         parser.error('--pkl_file is required if --meas_source is "pickle"')
