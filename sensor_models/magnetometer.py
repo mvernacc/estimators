@@ -276,6 +276,15 @@ def get_meas_variance(noise_cov, b, D, h_meas):
     return 4 * np.dot(a.T, np.dot(noise_cov, a)) + 2 * np.trace(noise_cov**2)
 
 
+def calibrate_data(mag_data, b, D):
+    '''Apply the calibration to a list of magnetometer measurements.'''
+    mag_data_post_cal = np.zeros(mag_data.shape)
+    for i in xrange(mag_data.shape[0]):
+        mag_data_post_cal[i] = np.squeeze(np.dot(np.eye(3) + D, np.array([mag_data[i]]).T))\
+            - b
+    return mag_data_post_cal
+
+
 class MagCalUKF(object):
     def __init__(self, noise_cov, magnitude=52.2, b=None, D=None):
         '''Magnetometer calibration Unscented Kalman Filter.
