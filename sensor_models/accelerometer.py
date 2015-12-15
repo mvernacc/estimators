@@ -81,7 +81,7 @@ class Accelerometer(StatefulSensor):
             assert(len(sensor_state) == 3)
             a_bias_sensor = sensor_state     
         
-        g_earth_sensor = quat_utils.rotate_frame(self.g_earth_ned, q_ned2sensor)
+        g_earth_sensor = quat_utils.rotate_frame(-self.g_earth_ned, q_ned2sensor)
         y = g_earth_sensor + a_bias_sensor
         return y
 
