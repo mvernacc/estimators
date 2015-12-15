@@ -133,14 +133,14 @@ def main(args):
         mag_data_post_cal[i] = np.squeeze(np.dot(np.eye(3) + D, np.array([mag_data[i]]).T))\
             - b
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(8,8))
     ax3d = fig.add_subplot(111, projection='3d')
     ax3d.plot([0,50], [0,0], [0,0], color='red')
     ax3d.plot([0,0], [0,50], [0,0], color='green')
     ax3d.plot([0,0], [0,0], [0,50], color='blue')
     ax3d.scatter(mag_data[:,0], mag_data[:,1], mag_data[:,2], color='cyan', label='Uncalibrated')
     ax3d.scatter(mag_data_post_cal[:,0], mag_data_post_cal[:,1], mag_data_post_cal[:,2], color='magenta', label='Calibrated')
-    plt.legend()
+    plt.legend(loc='center left')
     plt.xlabel('Magnetic field [uT]')
     plt.ylabel('Magnetic field [uT]')
     plt.title('Magnetometer calibration by {:s}'.format(args.solver))
@@ -152,6 +152,7 @@ def main(args):
         for point in np.diag(direction * MAX * np.array([1,1,1])):
             ax3d.plot([point[0]], [point[1]], [point[2]], 'w')
 
+    plt.savefig('mag_cal.pdf')
     plt.show()
 
 
