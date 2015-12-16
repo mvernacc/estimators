@@ -61,3 +61,7 @@ target/
 # Outputs of Allan variance graphing
 sensor_models/*allan.pdf
 sensor_models/*allan.png
+
+# Outputs of mag_cal
+sensor_models/mag_cal.p
+sensor_models/mag_cal.pdf
