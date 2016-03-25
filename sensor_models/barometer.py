@@ -86,7 +86,7 @@ class Barometer(StatefulSensor):
         # Standard atmosphere pressure for the given altitude, from eqn. 8 in [3].
         std_atm_pressure =  self.sea_level_pressure * (alt_msl * self.L / self.sea_level_temp + 1)\
             **(-self.g / (self.L * self.R))
-        y = np.array([std_atm_pressure + bias_pressure])
+        y = std_atm_pressure + bias_pressure
         return y
 
 
