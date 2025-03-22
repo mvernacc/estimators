@@ -143,6 +143,7 @@ def main():
     print("Final estimate covariance Q = ")
     print(ukf.Q)
 
+    plt.figure(figsize=(10, 8))
     ax = plt.subplot(3, 2, 1)
     colors = ["black", "red", "green", "blue"]
     for i in range(4):
@@ -241,6 +242,8 @@ def main():
     plt.xlabel("Time [s]")
     plt.ylabel("Accel [m / s**2]")
     plt.legend(framealpha=0.5)
+
+    plt.tight_layout()
 
     plt.show()
 
