@@ -11,11 +11,11 @@ import scipy.linalg
 
 class ExtendedKalmanFilter(object):
     def __init__(self, x_est_0, Q_0, f, A, W, h, C, R):
-        """Create an Extened Kalman Filter.
+        """Create an Extended Kalman Filter.
 
         Arguments:
             x_est_0 (real vector): The initial state estimate.
-            Q_0 (real matrix): The intial estimate covariance.
+            Q_0 (real matrix): The initial estimate covariance.
             f (function): State update function (x_{t-1}, u) --> x_t.
             A (function): Jacobian of the state update function.
             W (real matrix): Process noise covariance.
@@ -72,11 +72,11 @@ class ExtendedKalmanFilter(object):
 
 class UnscentedKalmanFilter(object):
     def __init__(self, x_est_0, Q_0, f, W, h, R):
-        """Create an Extened Kalman Filter.
+        """Create an Unscented Kalman Filter.
 
         Arguments:
             x_est_0 (real vector): The initial state estimate.
-            Q_0 (real matrix): The intial estimate covariance.
+            Q_0 (real matrix): The initial estimate covariance.
             f (function): State update function (x_{t-1}, u) --> x_t.
             W (real matrix): Process noise covariance.
             h (function): Measurement function (x_t) --> y.
