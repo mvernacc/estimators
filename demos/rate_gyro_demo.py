@@ -6,11 +6,12 @@ MIT Rocket Team
 2015 Nov 22
 """
 
+import argparse
+import pickle as pickle
+import time
+
 import numpy as np
 from matplotlib import pyplot as plt
-import time
-import pickle as pickle
-import argparse
 
 from estimators.sensor_models.rate_gyro import RateGyro
 

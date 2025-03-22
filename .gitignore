@@ -59,9 +59,9 @@ docs/_build/
 target/
 
 # Outputs of Allan variance graphing
-sensor_models/*allan.pdf
-sensor_models/*allan.png
+src/estimators/sensor_models/*allan.pdf
+src/estimators/sensor_models/*allan.png
 
 # Outputs of mag_cal
-sensor_models/mag_cal.p
-sensor_models/mag_cal.pdf
+demos/mag_cal.p
+demos/mag_cal.pdf

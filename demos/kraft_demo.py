@@ -4,15 +4,14 @@ Matt Vernacchia
 2015 Nov 30
 """
 
-from matplotlib import pyplot as plt
 import numpy as np
-
-from estimators.sensor_models.sensor_interface import KalmanSensors
-from estimators.sensor_models.magnetometer import Magnetometer
-from estimators.sensor_models.rate_gyro import RateGyro
-from estimators.sensor_models.accelerometer import Accelerometer
+from matplotlib import pyplot as plt
 
 from estimators.kraft_quat_ukf import KraftQautUKF
+from estimators.sensor_models.accelerometer import Accelerometer
+from estimators.sensor_models.magnetometer import Magnetometer
+from estimators.sensor_models.rate_gyro import RateGyro
+from estimators.sensor_models.sensor_interface import KalmanSensors
 from estimators.utils import quat_utils
 from estimators.utils.plot_utils_16322 import plot_single_state_vs_time
 
@@ -34,7 +33,7 @@ def main():
     np.set_printoptions(precision=3)
     dt = 0.1
     # Create the sensors for the Kalman filter estimator (known bias parameters).
-    magneto_est = Magnetometer(h_bias_ned=[0, 0, 0], h_bias_sensor=[0, 0, 0])
+    magneto_est = Magnetometer(b=[0, 0, 0], D=np.zeros((3, 3)))
     magneto_est.is_stateful = False
     gyro_est = RateGyro(constant_bias=[0, 0, 0], dt=dt)
     accel_est = Accelerometer(a_bias_sensor=[0, 0, 0])
@@ -64,7 +63,7 @@ def main():
 
     # Create the sensors for the simulation (unknown, random bias parameters).
     gyro_sim = RateGyro(dt=dt)
-    magneto_sim = Magnetometer(h_bias_ned=[0, 0, 0], h_bias_sensor=[0, 0, 0])
+    magneto_sim = Magnetometer()
     magneto_sim.is_stateful = False
     accel_sim = Accelerometer()
     accel_sim.is_stateful = False

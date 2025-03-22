@@ -4,14 +4,16 @@ Matt Vernacchia
 2015 Dec 14.
 """
 
-from . import magnetometer
-import numpy as np
-from matplotlib import pyplot as plt
-from estimators.utils import quat_utils
-from estimators.utils.plot_utils_16322 import plot_single_state_vs_time
 import argparse
 import pickle as pickle
+
+import numpy as np
+from matplotlib import pyplot as plt
 from scipy.optimize import leastsq
+
+from estimators.sensor_models import magnetometer
+from estimators.utils import quat_utils
+from estimators.utils.plot_utils_16322 import plot_single_state_vs_time
 
 
 def objective_function(x, mag_data):
@@ -180,7 +182,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Magnetometer calibration.")
     parser.add_argument(
-        "--meas_source", type=str, choices=["sim", "pickle"], required=True
+        "--meas_source", type=str, choices=["sim", "pickle"], default="sim"
     )
     parser.add_argument(
         "--pkl_file",
@@ -188,7 +190,7 @@ if __name__ == "__main__":
         required=False,
         help='The pickle file containing the measurement data. Required if --meas_source is "pickle".',
     )
-    parser.add_argument("--solver", type=str, choices=["ukf", "leastsq"], required=True)
+    parser.add_argument("--solver", type=str, choices=["ukf", "leastsq"], default="ukf")
     args = parser.parse_args()
     if args.meas_source == "pickle" and args.pkl_file is None:
         parser.error('--pkl_file is required if --meas_source is "pickle"')

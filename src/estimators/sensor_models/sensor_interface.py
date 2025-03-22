@@ -115,6 +115,11 @@ class KalmanSensors:
                 == self.n_system_states + self.n_sensor_states - n_redundant_states
             )
 
+    @property
+    def n_measurements(self) -> int:
+        """Number of measurement dimensions across all sensors."""
+        return self.noise_cov.shape[0]
+
     def measurement_function(self, x):
         """Kalman Filter measurement function.
 
