@@ -1,15 +1,15 @@
-''' Unscented Quaternion Estimator for attitude state estimation.
+"""Unscented Quaternion Estimator for attitude state estimation.
 
 Matt Vernacchia
 2015 Nov 28
-'''
+"""
 
 import numpy as np
 import transforms3d.quaternions as quat
 
 
 def cross_mat(v):
-    ''' Cross product matrix.
+    """Cross product matrix.
 
     Implement eqn 17 in Crassidis [1].
 
@@ -23,17 +23,13 @@ def cross_mat(v):
         [1] J. L. Crassidis and F. Landis Markley, 'Unscented Filtering for
             Spacecraft Attitude Estimation,' SUNY Buffalo, Amherst, NY.
             Online: http://ancs.eng.buffalo.edu/pdf/ancs_papers/2003/uf_att.pdf
-    '''
+    """
     v = np.squeeze(np.array(v))
-    return np.array([
-        [0, -v[2], v[1]],
-        [v[2], 0 , -v[0]],
-        [-v[1], v[0], 0]
-        ])
+    return np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
 
 
 def quat_derivative(q, w):
-    ''' Quaternion derivative dq / dt.
+    """Quaternion derivative dq / dt.
 
     Note this is slightly different from equation 16a in Crassidis [1]. He
     has q[3] as the real part of the the quaternion, I have q[0] as the real
@@ -50,18 +46,20 @@ def quat_derivative(q, w):
         [1] J. L. Crassidis and F. Landis Markley, 'Unscented Filtering for
             Spacecraft Attitude Estimation,' SUNY Buffalo, Amherst, NY.
             Online: http://ancs.eng.buffalo.edu/pdf/ancs_papers/2003/uf_att.pdf
-    '''
-    Xi = np.bmat([
-        [-np.matrix(q[1:])],
-        [q[0] * np.eye(3) + cross_mat(q[1:])],
-        ]).A
-    w = np.matrix(w)
+    """
+    Xi = np.vstack(
+        [
+            [-np.array(q[1:])],
+            q[0] * np.eye(3) + cross_mat(q[1:]),
+        ]
+    )
+    w = np.array(w)
     q_dot = 0.5 * np.dot(Xi, w.T)
-    return np.squeeze(q_dot.A)
+    return np.squeeze(q_dot)
 
 
 def quat_propagate(q, w, dt):
-    '''Propagate a quaternion forward in time.
+    """Propagate a quaternion forward in time.
 
     Arguments:
         q (quaternion): The attitude [units: none].
@@ -75,7 +73,7 @@ def quat_propagate(q, w, dt):
         [1] J. L. Crassidis and F. Landis Markley, 'Unscented Filtering for
             Spacecraft Attitude Estimation,' SUNY Buffalo, Amherst, NY.
             Online: http://ancs.eng.buffalo.edu/pdf/ancs_papers/2003/uf_att.pdf
-    '''
+    """
     w = np.array(w)
     norm_w = np.linalg.norm(w)
     if norm_w < 1e-10:
@@ -86,7 +84,7 @@ def quat_propagate(q, w, dt):
 
 
 def quat2rodrigues(dq, a=1.0, f=4.0):
-    ''' Convert an error quaternion to Rodrigues parameter vector.
+    """Convert an error quaternion to Rodrigues parameter vector.
 
     Arguments:
         dq (quaternion): Error quaternion [units: none].
@@ -100,13 +98,13 @@ def quat2rodrigues(dq, a=1.0, f=4.0):
         [1] J. L. Crassidis and F. Landis Markley, 'Unscented Filtering for
             Spacecraft Attitude Estimation,' SUNY Buffalo, Amherst, NY.
             Online: http://ancs.eng.buffalo.edu/pdf/ancs_papers/2003/uf_att.pdf
-    '''
+    """
     dp = f / (a + dq[0]) * dq[1:]
     return dp
 
 
 def rodrigues2quat(dp, a=1.0, f=4.0):
-    ''' Convert an error quaternion to Rodrigues parameter vector.
+    """Convert an error quaternion to Rodrigues parameter vector.
 
     Arguments:
         dp (3-vector): Generalized Rodrigues paramter vector. [units: none].
@@ -120,21 +118,21 @@ def rodrigues2quat(dp, a=1.0, f=4.0):
         [1] J. L. Crassidis and F. Landis Markley, 'Unscented Filtering for
             Spacecraft Attitude Estimation,' SUNY Buffalo, Amherst, NY.
             Online: http://ancs.eng.buffalo.edu/pdf/ancs_papers/2003/uf_att.pdf
-    '''
+    """
     dq = np.zeros(4)
-    n = np.linalg.norm(dp)**2
-    dq[0] = (-a * n + f * (f**2 + (1 - a**2)*n)**0.5) / (f**2 + n)
+    n = np.linalg.norm(dp) ** 2
+    dq[0] = (-a * n + f * (f**2 + (1 - a**2) * n) ** 0.5) / (f**2 + n)
     dq[1:] = (a + dq[0]) / f * dp
     return dq
 
 
 def quat_log(q):
-    ''' Natural logarithm of a Quaternion.
+    """Natural logarithm of a Quaternion.
 
     References:
         https://en.wikipedia.org/wiki/Quaternion#Exponential.2C_logarithm.2C_and_power
         http://www.geometrictools.com/Documentation/Quaternions.pdf
-    '''
+    """
     nq = np.linalg.norm(q)
     nv = np.linalg.norm(q[1:])
 
@@ -149,17 +147,17 @@ def quat_log(q):
         # Identity quaterion
         return np.zeros(4)
     else:
-        return np.hstack((
-            np.log(nq),
-            q[1:] / np.linalg.norm(q[1:]) * np.arccos(q[0] / nq)
-            ))
+        return np.hstack(
+            (np.log(nq), q[1:] / np.linalg.norm(q[1:]) * np.arccos(q[0] / nq))
+        )
+
 
 def quat_exp(q):
-    '''Exponential of a quaternion, e**q.
+    """Exponential of a quaternion, e**q.
 
     References:
         https://en.wikipedia.org/wiki/Quaternion#Exponential.2C_logarithm.2C_and_power
-    '''
+    """
     nv = np.linalg.norm(q[1:])
 
     if np.isclose(q[0], 0):
@@ -170,21 +168,18 @@ def quat_exp(q):
         else:
             return quat.axangle2quat(q[1:], nv)
     else:
-        return np.exp(q[0]) * np.hstack((
-            np.cos(nv),
-            q[1:] / nv * np.sin(nv)
-            ))
+        return np.exp(q[0]) * np.hstack((np.cos(nv), q[1:] / nv * np.sin(nv)))
 
 
 def quat_average(q_list, q_expected=None):
-    ''' Average of a list of quaternions.
+    """Average of a list of quaternions.
 
     Of the two equivalent average results (q_avg or -q_avg),
     return the one closer to q_expected.
 
     References:
         [1] Online: http://www.acsu.buffalo.edu/~johnc/ave_quat07.pdf
-    '''
+    """
     # My & Trang's approach:
     q_avg = np.copy(q_list[0])
     if sum(q_avg) < 0:
@@ -226,7 +221,7 @@ def quat_average(q_list, q_expected=None):
 
 
 def rotate_frame(v_A, q_A2B):
-    '''Rotate the frame in which a vector is written.
+    """Rotate the frame in which a vector is written.
 
     Arguments:
         v_A (3-vector): A vector written in the coordinates of
@@ -236,20 +231,20 @@ def rotate_frame(v_A, q_A2B):
     Returns:
         3-vector: The vector, written in the coordinates of frame
             B.
-    '''
+    """
     v_B = quat.rotate_vector(v_A, quat.qinverse(q_A2B))
     return v_B
 
 
 def random_quat():
-    '''Get a random unit quaternion from a uniform distribution over
+    """Get a random unit quaternion from a uniform distribution over
     SO(3).
 
     References:
         https://www-preview.ri.cmu.edu/pub_files/pub4/kuffner_james_2004_1/kuffner_james_2004_1.pdf
-    '''
+    """
     s = np.random.rand()
-    s1 = (1 - s)**0.5
+    s1 = (1 - s) ** 0.5
     s2 = s**0.5
     t1 = 2 * np.pi * np.random.rand()
     t2 = 2 * np.pi * np.random.rand()
@@ -258,4 +253,3 @@ def random_quat():
     y = np.cos(t1) * s1
     z = np.sin(t2) * s2
     return np.array([w, x, y, z])
-
