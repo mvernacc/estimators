@@ -47,15 +47,15 @@ def quat_derivative(q, w):
             Spacecraft Attitude Estimation,' SUNY Buffalo, Amherst, NY.
             Online: http://ancs.eng.buffalo.edu/pdf/ancs_papers/2003/uf_att.pdf
     """
-    Xi = np.bmat(
+    Xi = np.vstack(
         [
-            [-np.matrix(q[1:])],
-            [q[0] * np.eye(3) + cross_mat(q[1:])],
+            [-np.array(q[1:])],
+            q[0] * np.eye(3) + cross_mat(q[1:]),
         ]
-    ).A
-    w = np.matrix(w)
+    )
+    w = np.array(w)
     q_dot = 0.5 * np.dot(Xi, w.T)
-    return np.squeeze(q_dot.A)
+    return np.squeeze(q_dot)
 
 
 def quat_propagate(q, w, dt):
