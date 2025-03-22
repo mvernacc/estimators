@@ -1,18 +1,17 @@
-''' Allan variance analysis of gyroscope noise.
+"""Allan variance analysis of gyroscope noise.
 
 Matt Vernacchia
 2015 Nov 27
-'''
+"""
 
-from __future__ import division
 import numpy as np
 import argparse
-import cPickle as pickle
+import pickle as pickle
 from matplotlib import pyplot as plt
 
 
 def allan(times, values, n_points=100):
-    ''' Allan variance analysis.
+    """Allan variance analysis.
 
     Arguments:
         times (array of reals): Time of each data point [units: second]. The times
@@ -27,7 +26,7 @@ def allan(times, values, n_points=100):
         [1] O. J. Woodman, 'An introduction to inertial navigation,' Univ. of
             Cambridge, Cambridge UK, Tech. Rep. UCAM-CL-TR-696, 2007.
 
-    '''
+    """
     # Averaging times to evaluate.
     dt = np.mean(np.diff(times))
     t_range = times[-1] - times[0]
@@ -36,21 +35,25 @@ def allan(times, values, n_points=100):
     # The longest averaging time is long enough for a total of 9 bins, this is
     # the minimum valid number of bins according to Woodman [1].
     t_avg_long = t_range / 9.0
-    assert t_avg_long > t_avg_short, 'Not enough data for Allan variance analysis.'
+    assert t_avg_long > t_avg_short, "Not enough data for Allan variance analysis."
     # Build logarithmic array of averaging times
-    t_avg = np.logspace(np.log2(t_avg_short), np.log2(t_avg_long), num=n_points,
-        base=2.0)
+    t_avg = np.logspace(
+        np.log2(t_avg_short), np.log2(t_avg_long), num=n_points, base=2.0
+    )
     # Compute the Allan Variance for each averaging time.
     avar = np.zeros(len(t_avg))
-    for (t, i) in zip(t_avg, range(len(t_avg))):
+    for t, i in zip(t_avg, list(range(len(t_avg)))):
         # Divide the data into bins of time length t, step 1 in Woodman [1].
         n_bins = int(t_range // t)
         bins = np.array_split(values, n_bins)
         # Average the data in each bin, step 2 in Woodman [1].
         a = [np.mean(b) for b in bins]
         # Compute the Allan variance, step 3 in Woodman [1].
-        avar[i] = 1.0 / (2 * (n_bins - 1)) * sum([(a[j + 1] - a[j])**2 \
-            for j in xrange(n_bins - 1)])
+        avar[i] = (
+            1.0
+            / (2 * (n_bins - 1))
+            * sum([(a[j + 1] - a[j]) ** 2 for j in range(n_bins - 1)])
+        )
     # The Allan deviation is the square root of the Allan variance, eqn
     # 20 in Woodman [1].
     adev = avar**0.5
@@ -58,12 +61,12 @@ def allan(times, values, n_points=100):
 
 
 def rate_noise_from_allan(t_avg, adev, fit_params=False):
-    ''' Compute the rate noise (a.k.a. angle random walk) from the Allan Deviation.
+    """Compute the rate noise (a.k.a. angle random walk) from the Allan Deviation.
 
     Arguments:
         t_avg (array of reals): Averaging times [units: second].
         adev (array of reals): Allan deviation at each averaging time [units: x].
-        fit_params (optional, boolean): Return the fit parameters of the 
+        fit_params (optional, boolean): Return the fit parameters of the
             linear portion of the log10-log10 Allan Deviation vs averaging
             time curve.
 
@@ -77,7 +80,7 @@ def rate_noise_from_allan(t_avg, adev, fit_params=False):
     References:
         [1] O. J. Woodman, 'An introduction to inertial navigation,' Univ. of
             Cambridge, Cambridge UK, Tech. Rep. UCAM-CL-TR-696, 2007.
-    '''
+    """
     # Find the index at which the linear region ends. Assume the linear region
     # goes from min(t_avg) to t_avg = 10 s.
     ind_start = 0
@@ -86,10 +89,11 @@ def rate_noise_from_allan(t_avg, adev, fit_params=False):
     log_adev = np.log10(adev[ind_start:ind_end])
     p = np.polyfit(log_t, log_adev, 1)
     # p[0] is the slope, it should be -0.5 according to Woodman [1].
-    assert abs(p[0] - -0.5) < 0.2, 'The log log slope is {:.3f}, it should be -0.5'\
-        .format(p[0])
+    assert abs(p[0] - -0.5) < 0.2, (
+        "The log log slope is {:.3f}, it should be -0.5".format(p[0])
+    )
     # The rate noise is the linear fit evaluated at t_avg = 1, Woodman [1].
-    log_rate_noise = p[0]*np.log10(1) + p[1]
+    log_rate_noise = p[0] * np.log10(1) + p[1]
     rate_noise = 10**log_rate_noise
 
     if fit_params:
@@ -98,86 +102,100 @@ def rate_noise_from_allan(t_avg, adev, fit_params=False):
         return rate_noise
 
 
-
 def main(args):
-    with open(args.in_file, 'rb') as f:
+    with open(args.in_file, "rb") as f:
         data = pickle.load(f)
 
-    if args.data_name == 'gyro_data':
+    if args.data_name == "gyro_data":
         # Gyro data from MPU-9150 is in deg/s.
-        y_units = 'deg/s'
+        y_units = "deg/s"
         y = data[args.data_name]
-    if args.data_name == 'accel_data':
+    if args.data_name == "accel_data":
         # Accel data from MPU-9150 is in g, convert to m/s**2.
-        y_units = 'm/s**2'
+        y_units = "m/s**2"
         y = 9.81 * data[args.data_name]
-    if args.data_name == 'mag_data':
+    if args.data_name == "mag_data":
         # Magnetometer data from MPU-9150 is in microtesla.
-        y_units = 'uT'
+        y_units = "uT"
         y = data[args.data_name]
 
-    if 'time' in data:
-        time = data['time']
+    if "time" in data:
+        time = data["time"]
         dt = np.mean(np.diff(time))
     else:
         n = y.shape[0]
         dt = 1e-2
-        time = np.linspace(0, (n-1)*dt, n)
+        time = np.linspace(0, (n - 1) * dt, n)
 
-    plot_colors = ['red', 'green', 'blue']
-    axis_names = ['$x$', '$y$', '$z$']
+    plot_colors = ["red", "green", "blue"]
+    axis_names = ["$x$", "$y$", "$z$"]
     title_d = {
-        'accel_data': 'Accelerometer',
-        'gyro_data': 'Rate Gyro',
-        'mag_data': 'Magnetometer',
+        "accel_data": "Accelerometer",
+        "gyro_data": "Rate Gyro",
+        "mag_data": "Magnetometer",
     }
 
-
-    plt.figure(figsize=(5,5))
-    for i in xrange(3):
-        print 'Axis {:d}:'.format(i)
-        t_avg, adev = allan(time, y[:,i])
+    plt.figure(figsize=(5, 5))
+    for i in range(3):
+        print("Axis {:d}:".format(i))
+        t_avg, adev = allan(time, y[:, i])
 
         rate_noise, p = rate_noise_from_allan(t_avg, adev, fit_params=True)
         t_fit = np.array([t_avg[0], 10])
-        fit_log = p[0]*np.log10(t_fit) + p[1]
+        fit_log = p[0] * np.log10(t_fit) + p[1]
         fit = np.power(10, fit_log)
 
-        print '\tstd. dev. noise = {:.3e} {:s} at {:.1f} Hz'.format(
-            np.std(y[:,i]), y_units, 1.0 / dt)
-        print '\tAllan noise = {:.3e} {:s}'.format(rate_noise,
-            y_units + ' s**0.5')
+        print(
+            "\tstd. dev. noise = {:.3e} {:s} at {:.1f} Hz".format(
+                np.std(y[:, i]), y_units, 1.0 / dt
+            )
+        )
+        print("\tAllan noise = {:.3e} {:s}".format(rate_noise, y_units + " s**0.5"))
 
         bias_instability = min(adev)
         correlation_time = t_avg[np.argmin(adev)]
-        print '\tBias instability of {:.3e} {:s} at {:.1f} s'.format(
-            bias_instability, y_units, correlation_time)
+        print(
+            "\tBias instability of {:.3e} {:s} at {:.1f} s".format(
+                bias_instability, y_units, correlation_time
+            )
+        )
 
-        plt.loglog(t_avg, adev, color=plot_colors[i],
-            label='{:s}: allan dev.'.format(axis_names[i]), alpha=0.7)
-        plt.xlabel('Averaging time [s]')
-        plt.ylabel('Allan Deviation [{:s}]'.format(y_units))
-        
-        plt.title('{:s} Allan Deviation'.format(title_d[args.data_name]))
-        plt.grid(b=True, which='major')
-        plt.grid(b=True, which='minor')
+        plt.loglog(
+            t_avg,
+            adev,
+            color=plot_colors[i],
+            label="{:s}: allan dev.".format(axis_names[i]),
+            alpha=0.7,
+        )
+        plt.xlabel("Averaging time [s]")
+        plt.ylabel("Allan Deviation [{:s}]".format(y_units))
 
-        plt.loglog(t_fit, fit, color=plot_colors[i],
-            linestyle='--', label='{:s}: linear fit'.format(axis_names[i]))
-        plt.loglog(1, rate_noise, color=plot_colors[i], marker='o')
+        plt.title("{:s} Allan Deviation".format(title_d[args.data_name]))
+        plt.grid(b=True, which="major")
+        plt.grid(b=True, which="minor")
+
+        plt.loglog(
+            t_fit,
+            fit,
+            color=plot_colors[i],
+            linestyle="--",
+            label="{:s}: linear fit".format(axis_names[i]),
+        )
+        plt.loglog(1, rate_noise, color=plot_colors[i], marker="o")
 
     plt.legend(framealpha=0.5)
     plt.tight_layout()
 
-    plt.savefig('{:s}_allan.pdf'.format(args.data_name))
-    plt.savefig('{:s}_allan.png'.format(args.data_name))
+    plt.savefig("{:s}_allan.pdf".format(args.data_name))
+    plt.savefig("{:s}_allan.png".format(args.data_name))
     plt.show()
 
 
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Allan variance analysis of gyroscope noise.')
-    parser.add_argument('in_file', type=str, help='Pickle file of gyro data.')
-    parser.add_argument('data_name', type=str, help='Key for data in the pickle dict.')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Allan variance analysis of gyroscope noise."
+    )
+    parser.add_argument("in_file", type=str, help="Pickle file of gyro data.")
+    parser.add_argument("data_name", type=str, help="Key for data in the pickle dict.")
     args = parser.parse_args()
     main(args)
